@@ -1,13 +1,13 @@
 /**
  * PatriMoi — React Native (iOS / Android)
- * Compatible Xcode  |  Version 1.4
+ * Compatible Xcode  |  Version 1.5
  *
  * Architecture multi-fichiers :
  *   src/constants/   → colors.js, data.js
  *   src/utils/       → calc.js, fmt.js, api.js, conseils.js, supabase.js, auth.js
  *   src/components/  → ErrorBoundary.jsx, shared.jsx
- *   src/pages/       → PageAuth, PageProverbe, PageDashboard, PageActifs,
- *                       PageConseils, PageAPropos, PageParams
+ *   src/pages/       → PageOnboarding, PageAuth, PageProverbe, PageDashboard,
+ *                       PageActifs, PageConseils, PageAPropos, PageParams
  *
  * Backend : Supabase (auth + sync données)
  *   → voir backend/supabase/schema.sql pour la mise en place
@@ -20,12 +20,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { C, APP_W }           from './src/constants/colors';
 import { STORAGE_KEY, BVC_STORAGE_KEY, BVC_STALE_MS, INIT } from './src/constants/data';
+const ONBOARDING_KEY = '@patrimoi_onboarding_done';
 import { applyBVCCours, fetchBVC, fetchPrixOr, getBvcCache, setBvcCache } from './src/utils/api';
 import { fmtDate }             from './src/utils/fmt';
 import { getSession, loadPatrimoineData, savePatrimoineData, onAuthStateChange } from './src/utils/auth';
 import ErrorBoundary           from './src/components/ErrorBoundary';
 import { NavBar }              from './src/components/shared';
 import PageAuth                from './src/pages/PageAuth';
+import PageOnboarding          from './src/pages/PageOnboarding';
 import PageProverbe            from './src/pages/PageProverbe';
 import PageDashboard           from './src/pages/PageDashboard';
 import PageActifs              from './src/pages/PageActifs';
@@ -72,6 +74,9 @@ export default function PatriMoi() {
   const [data,         setData]         = useState(INIT);
   const [sub,          setSub]          = useState(null);
 
+  // Onboarding — affiché une seule fois au premier lancement
+  const [onboardingDone, setOnboardingDone] = useState(null); // null = pas encore vérifié
+
   // États d'authentification
   const [user,         setUser]         = useState(null);   // null = non connecté
   const [demoMode,     setDemoMode]     = useState(false);  // true = sans compte
@@ -84,6 +89,18 @@ export default function PatriMoi() {
   const appState        = useRef(AppState.currentState);
   const isRefreshingRef = useRef(false);
   const saveTimer       = useRef(null);
+
+  // ── 0. Vérification onboarding au démarrage ──────────────
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_KEY)
+      .then(v => setOnboardingDone(v === 'true'))
+      .catch(() => setOnboardingDone(true)); // en cas d'erreur, on skip l'onboarding
+  }, []);
+
+  const handleOnboardingDone = useCallback(async () => {
+    await AsyncStorage.setItem(ONBOARDING_KEY, 'true').catch(() => {});
+    setOnboardingDone(true);
+  }, []);
 
   // ── 1. Vérification session au démarrage ─────────────────
   useEffect(() => {
@@ -191,6 +208,24 @@ export default function PatriMoi() {
     const { signOut } = await import('./src/utils/auth');
     await signOut();
   }, []);
+
+  // ── Onboarding (premier lancement) ───────────────────────
+  if (onboardingDone === null) {
+    // Lecture AsyncStorage en cours
+    return (
+      <SafeAreaView style={{ flex:1, backgroundColor:C.pri, alignItems:'center', justifyContent:'center' }}>
+        <ActivityIndicator color={C.acc} size="large"/>
+      </SafeAreaView>
+    );
+  }
+
+  if (!onboardingDone) {
+    return (
+      <ErrorBoundary>
+        <PageOnboarding onDone={handleOnboardingDone}/>
+      </ErrorBoundary>
+    );
+  }
 
   // ── Splashscreen ─────────────────────────────────────────
   if (!authReady) {
