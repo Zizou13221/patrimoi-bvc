@@ -1,19 +1,23 @@
 /**
  * PatriMoi — React Native (iOS / Android)
- * Compatible Xcode  |  Version 1.2
+ * Compatible Xcode  |  Version 1.3
  *
  * v1.1 — Persistance AsyncStorage, cours or temps réel, widget accueil,
  *         conseils personnalisés, bilan dashboard
  *
- * v1.2 — Cours BVC temps réel :
- *  - fetchBVC() : fetch JSON statique publié par GitHub Actions 2x/jour
- *  - applyBVCCours() : applique les cours frais sur PEA + Compte-Titre
- *  - Bouton "↻ BVC" sur le Dashboard avec indicateur ✓ / ⚠
- *  - Fallback silencieux : cours précédents conservés si fetch échoue
- *  - Script bvc_batch/bvc_batch.py + .github/workflows/bvc.yml inclus
+ * v1.2 — Cours BVC temps réel (GitHub Actions batch, 20 tickers)
+ *
+ * v1.3 — Optimisations techniques :
+ *  - useMemo sur totalPatrimoine + tous les sous-totaux coûteux
+ *  - React.memo sur les composants de page (évite les re-renders inutiles)
+ *  - useCallback étendu à goTo, handleNav, saveData
+ *  - fetchWithRetry : 3 tentatives avec backoff exponentiel
+ *  - Cache BVC 30 min (évite les fetches inutiles)
+ *  - AppState listener : refresh au retour en premier plan
+ *  - TNR derrière __DEV__ (n'exécute pas en production)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +31,7 @@ import {
   Platform,
   StyleSheet,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -144,9 +149,9 @@ const totalPatrimoine = (d) =>
   calcTransport(d.transport) + calcOr(d.or, d.prixOr);
 
 // =========================================================
-// TNR — 25 tests unitaires (console uniquement)
+// TNR — 25 tests unitaires (dev uniquement — jamais en prod)
 // =========================================================
-(function runTNR() {
+if (__DEV__) (function runTNR() {
   let ok = 0, ko = 0;
   const run = (name, fn, expected) => {
     try {
@@ -181,7 +186,7 @@ const totalPatrimoine = (d) =>
   run('pctDiff gain',               () => Math.round(((110-100)/100)*100),                                             10);
   run('pctDiff perte',              () => Math.round(((90-100)/100)*100),                                              -10);
   console.log('[PatriMoi TNR] ' + ok + '/' + (ok+ko) + ' tests ' + (ko===0 ? 'OK' : '— ' + ko + ' ECHEC(S)'));
-})();
+})(); // end __DEV__ TNR
 
 // =========================================================
 // HELPERS
@@ -192,6 +197,23 @@ const pctDiff = (v, base) => base === 0 ? 0 : (v - base) / base * 100;
 const fmtDate = () => new Date().toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
 // =========================================================
+// FETCH AVEC RETRY — 3 tentatives, backoff exponentiel
+// =========================================================
+async function fetchWithRetry(url, options = {}, retries = 3, baseDelay = 800) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+    }
+    // backoff : 800ms, 1600ms, 3200ms
+    await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, i)));
+  }
+  return null;
+}
+
+// =========================================================
 // API COURS OR EN TEMPS RÉEL
 // Prix or via metals.live (USD/troy oz) + taux USD/MAD via er-api
 // Fallback silencieux : conserve le dernier prix connu
@@ -199,12 +221,12 @@ const fmtDate = () => new Date().toLocaleString('fr-FR', { day:'2-digit', month:
 async function fetchPrixOr() {
   try {
     const [goldRes, fxRes] = await Promise.all([
-      fetch('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(6000) }),
-      fetch('https://open.er-api.com/v6/latest/USD',  { signal: AbortSignal.timeout(6000) }),
+      fetchWithRetry('https://api.metals.live/v1/spot/gold', { signal: AbortSignal.timeout(6000) }),
+      fetchWithRetry('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(6000) }),
     ]);
-    if (!goldRes.ok || !fxRes.ok) return null;
-    const goldData = await goldRes.json();  // [{ gold: 3320.28 }]
-    const fxData   = await fxRes.json();    // { rates: { MAD: 10.08, ... } }
+    if (!goldRes || !fxRes) return null;
+    const goldData = await goldRes.json();
+    const fxData   = await fxRes.json();
     const goldUSD  = Array.isArray(goldData) ? goldData[0]?.gold : goldData?.gold;
     const usdMad   = fxData?.rates?.MAD;
     if (!goldUSD || !usdMad) return null;
@@ -216,20 +238,27 @@ async function fetchPrixOr() {
 }
 
 // =========================================================
-// API COURS BVC — GitHub Actions batch (2x/jour)
-// Fetch un JSON statique publié automatiquement sur GitHub.
-// Remplacez BVC_COURS_URL par l'URL raw de VOTRE repo.
+// API COURS BVC — GitHub Actions batch (toutes les heures)
+// Cache 30 min : si données récentes, pas de fetch inutile.
 // =========================================================
 const BVC_COURS_URL =
   'https://raw.githubusercontent.com/Zizou13221/patrimoi-bvc/main/bvc_cours.json';
 
-async function fetchBVC() {
+const BVC_CACHE_MS = 30 * 60 * 1000; // 30 minutes
+let _bvcCache = null; // { data, fetchedAt }
+
+async function fetchBVC(forceRefresh = false) {
+  // Utiliser le cache si moins de 30 min
+  if (!forceRefresh && _bvcCache && (Date.now() - _bvcCache.fetchedAt) < BVC_CACHE_MS) {
+    return _bvcCache.data;
+  }
   try {
-    const res = await fetch(BVC_COURS_URL, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
+    const res = await fetchWithRetry(BVC_COURS_URL, { signal: AbortSignal.timeout(8000) });
+    if (!res) return null;
     const json = await res.json();
     if (!json?.cours || typeof json.cours !== 'object') return null;
-    return json; // { updated, cours: { ATW: { cours, date, ... }, ... } }
+    _bvcCache = { data: json, fetchedAt: Date.now() };
+    return json;
   } catch {
     return null;
   }
@@ -653,12 +682,12 @@ const NavBar = ({ active, onChange }) => (
 // =========================================================
 // PAGE 1 — PROVERBE + WIDGET PATRIMOINE + TEMOIGNAGES
 // =========================================================
-function PageProverbe({ onNav, data }) {
+const PageProverbe = React.memo(function PageProverbe({ onNav, data }) {
   const today     = new Date();
   const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
   const prv       = PROVERBES[dayOfYear % PROVERBES.length];
   const initials  = prv.a.split(' ').map(w => w[0]).slice(0,2).join('');
-  const total     = totalPatrimoine(data);
+  const total     = useMemo(() => totalPatrimoine(data), [data]);
 
   return (
     <ScrollView style={{ flex:1, backgroundColor:C.bg }}>
@@ -768,25 +797,34 @@ function PageProverbe({ onNav, data }) {
       </View>
     </ScrollView>
   );
-}
+}); // React.memo PageProverbe
 
 // =========================================================
 // PAGE 2 — DASHBOARD
 // =========================================================
-function PageDashboard({ data, onNav, onRefreshOr, isRefreshing, onRefreshBVC, bvcStatus }) {
+const PageDashboard = React.memo(function PageDashboard({ data, onNav, onRefreshOr, isRefreshing, onRefreshBVC, bvcStatus }) {
   const [period, setPeriod] = useState('1A');
-  const total = totalPatrimoine(data);
 
-  const cats = [
-    { id:'liquide',   label:'Argent Liquide',      val:calcLiquide(data.liquidites), col:C.gpos, abbr:'LIQ', plPct:null },
-    { id:'banque',    label:'Argent en Banque',     val:calcBanque(data.banque),       col:C.navy, abbr:'BNQ', plPct:null },
-    { id:'carnet',    label:'Compte sur Carnet',    val:calcCarnet(data.carnet),       col:C.teal, abbr:'CRT', plPct:null },
-    { id:'pea',       label:'Compte PEA',           val:calcPEA(data.pea),             col:C.pri,  abbr:'PEA', plPct:pctDiff(calcPEA(data.pea),calcPEACout(data.pea)) },
-    { id:'ct',        label:'Compte-Titre',         val:calcCT(data.ct),               col:C.navy, abbr:'CT',  plPct:pctDiff(calcCT(data.ct),calcCTCout(data.ct)) },
-    { id:'or',        label:'Or & Metaux Precieux', val:calcOr(data.or,data.prixOr),   col:C.gold, abbr:'OR',  plPct:null },
+  const peaVal  = useMemo(() => calcPEA(data.pea),            [data.pea]);
+  const peaCout = useMemo(() => calcPEACout(data.pea),        [data.pea]);
+  const ctVal   = useMemo(() => calcCT(data.ct),              [data.ct]);
+  const ctCout  = useMemo(() => calcCTCout(data.ct),          [data.ct]);
+  const orVal   = useMemo(() => calcOr(data.or, data.prixOr), [data.or, data.prixOr]);
+
+  const cats = useMemo(() => [
+    { id:'liquide',   label:'Argent Liquide',      val:calcLiquide(data.liquidites), col:C.gpos,    abbr:'LIQ', plPct:null },
+    { id:'banque',    label:'Argent en Banque',     val:calcBanque(data.banque),       col:C.navy,    abbr:'BNQ', plPct:null },
+    { id:'carnet',    label:'Compte sur Carnet',    val:calcCarnet(data.carnet),       col:C.teal,    abbr:'CRT', plPct:null },
+    { id:'pea',       label:'Compte PEA',           val:peaVal,                        col:C.pri,     abbr:'PEA', plPct:pctDiff(peaVal, peaCout) },
+    { id:'ct',        label:'Compte-Titre',         val:ctVal,                         col:C.navy,    abbr:'CT',  plPct:pctDiff(ctVal, ctCout) },
+    { id:'or',        label:'Or & Metaux Precieux', val:orVal,                         col:C.gold,    abbr:'OR',  plPct:null },
     { id:'immobilier',label:'Immobilier & Terrains',val:calcImmo(data.immobilier),     col:'#B46428', abbr:'IMM', plPct:null },
     { id:'transport', label:'Biens de Transport',   val:calcTransport(data.transport), col:'#50506A', abbr:'VEH', plPct:null },
-  ].sort((a,b) => b.val - a.val);
+  ].sort((a,b) => b.val - a.val), [data, peaVal, peaCout, ctVal, ctCout, orVal]);
+
+  const total = useMemo(() =>
+    cats.reduce((s, c) => s + c.val, 0),
+  [cats]);
 
   const sparkData = [1.60,1.65,1.58,1.72,1.70,1.78,1.82,1.86,1.89,1.934].map(v => v * 1e6);
 
@@ -854,8 +892,8 @@ function PageDashboard({ data, onNav, onRefreshOr, isRefreshing, onRefreshBVC, b
             <View style={{ width:1, backgroundColor:C.g2 }}/>
             <View style={{ alignItems:'center' }}>
               <Text style={{ fontSize:10, color:C.g3 }}>PEA P&L</Text>
-              <Text style={{ fontWeight:'700', fontSize:13, color:calcPEA(data.pea) >= calcPEACout(data.pea) ? C.gpos : C.rneg }}>
-                {calcPEACout(data.pea) > 0 ? (pctDiff(calcPEA(data.pea), calcPEACout(data.pea)) >= 0 ? '+' : '') + pctDiff(calcPEA(data.pea), calcPEACout(data.pea)).toFixed(1) + '%' : 'N/A'}
+              <Text style={{ fontWeight:'700', fontSize:13, color:peaVal >= peaCout ? C.gpos : C.rneg }}>
+                {peaCout > 0 ? (pctDiff(peaVal, peaCout) >= 0 ? '+' : '') + pctDiff(peaVal, peaCout).toFixed(1) + '%' : 'N/A'}
               </Text>
             </View>
             <View style={{ width:1, backgroundColor:C.g2 }}/>
@@ -897,7 +935,7 @@ function PageDashboard({ data, onNav, onRefreshOr, isRefreshing, onRefreshBVC, b
       </View>
     </ScrollView>
   );
-}
+}); // React.memo PageDashboard
 
 // =========================================================
 // SOUS-PAGES ACTIFS
@@ -1444,9 +1482,8 @@ function SubTransport({ data, setData, onBack }) {
 // =========================================================
 // PAGE 3 — MES ACTIFS
 // =========================================================
-function PageActifs({ data, setData, sub, setSub }) {
-  const total = totalPatrimoine(data);
-  const cats = [
+const PageActifs = React.memo(function PageActifs({ data, setData, sub, setSub }) {
+  const cats = useMemo(() => [
     { id:'liquide',   section:'Liquidites & Epargne',      label:'Argent Liquide & Devises', abbr:'LIQ', col:C.gpos,   val:calcLiquide(data.liquidites),   detail:'DH + '+data.liquidites.devises.length+' devises' },
     { id:'banque',    section:'Liquidites & Epargne',      label:'Argent en Banque',          abbr:'BNQ', col:C.navy,   val:calcBanque(data.banque),         detail:data.banque.length+' compte(s)' },
     { id:'carnet',    section:'Liquidites & Epargne',      label:'Compte sur Carnet',         abbr:'CRT', col:C.teal,   val:calcCarnet(data.carnet),         detail:'Rappels actifs' },
@@ -1455,7 +1492,9 @@ function PageActifs({ data, setData, sub, setSub }) {
     { id:'or',        section:'Actifs reels',               label:'Or & Metaux Precieux',      abbr:'OR',  col:C.gold,   val:calcOr(data.or,data.prixOr),     detail:data.or.reduce((s,o)=>s+o.quantite,0)+' g au total' },
     { id:'immobilier',section:'Actifs reels',               label:'Immobilier & Terrains',     abbr:'IMM', col:'#B46428',val:calcImmo(data.immobilier),         detail:data.immobilier.length+' bien(s)' },
     { id:'transport', section:'Actifs reels',               label:'Biens de Transport',        abbr:'VEH', col:'#50506A',val:calcTransport(data.transport),    detail:data.transport.length+' vehicule(s)' },
-  ];
+  ], [data]);
+
+  const total = useMemo(() => cats.reduce((s, c) => s + c.val, 0), [cats]);
 
   if (sub==='liquide')    return <SubLiquide    data={data} setData={setData} onBack={() => setSub(null)}/>;
   if (sub==='banque')     return <SubBanque     data={data} setData={setData} onBack={() => setSub(null)}/>;
@@ -1499,14 +1538,14 @@ function PageActifs({ data, setData, sub, setSub }) {
       </ScrollView>
     </View>
   );
-}
+}); // React.memo PageActifs
 
 // =========================================================
 // PAGE 4 — CONSEILS PERSONNALISÉS
 // =========================================================
-function PageConseils({ data, onNav }) {
-  const conseils = generateConseils(data);
-  const total    = totalPatrimoine(data);
+const PageConseils = React.memo(function PageConseils({ data, onNav }) {
+  const conseils = useMemo(() => generateConseils(data), [data]);
+  const total    = useMemo(() => totalPatrimoine(data),  [data]);
 
   const priorityLabel = (p) => p === 1 ? 'Urgent' : p === 2 ? 'Important' : 'À considérer';
   const priorityBg    = (p) => p === 1 ? '#FFF0F0' : p === 2 ? '#FFF8E8' : '#F0F8FF';
@@ -1617,7 +1656,7 @@ function PageConseils({ data, onNav }) {
       </ScrollView>
     </View>
   );
-}
+}); // React.memo PageConseils
 
 // =========================================================
 // PAGE 5 — A PROPOS
@@ -1786,6 +1825,7 @@ export default function PatriMoi() {
   const [appReady,    setAppReady]    = useState(false);
   const [isRefreshing,setIsRefreshing]= useState(false);
   const [bvcStatus,   setBvcStatus]   = useState(null); // null | 'ok' | 'error'
+  const appState = useRef(AppState.currentState);
 
   // ── Chargement initial depuis AsyncStorage ──────────────
   useEffect(() => {
@@ -1799,10 +1839,14 @@ export default function PatriMoi() {
   }, []);
 
   // ── Sauvegarde automatique à chaque modification ─────────
+  const saveData = useCallback((d) => {
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(d)).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!appReady) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(() => {});
-  }, [data, appReady]);
+    saveData(data);
+  }, [data, appReady, saveData]);
 
   // ── Refresh cours or ────────────────────────────────────
   const refreshOr = useCallback(async () => {
@@ -1816,8 +1860,9 @@ export default function PatriMoi() {
   }, [isRefreshing]);
 
   // ── Refresh cours BVC ────────────────────────────────────
-  const refreshBVC = useCallback(async () => {
-    const bvcData = await fetchBVC();
+  const refreshBVC = useCallback(async (force = false) => {
+    setBvcStatus(s => s === null ? null : s); // ne pas reset si déjà ok
+    const bvcData = await fetchBVC(force);
     if (bvcData) {
       setData(d => applyBVCCours(d, bvcData));
       setBvcStatus('ok');
@@ -1826,15 +1871,26 @@ export default function PatriMoi() {
     }
   }, []);
 
-  // Fetch or + BVC au démarrage (silencieux, parallèle)
+  // ── Fetch or + BVC au démarrage (parallèle, silencieux) ──
   useEffect(() => {
     if (!appReady) return;
     refreshOr();
     refreshBVC();
-  }, [appReady]);
+  }, [appReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function goTo(p, subPage = null) { setPage(p); setSub(subPage); }
-  function handleNav(p)            { setPage(p); setSub(null);    }
+  // ── Refresh au retour en premier plan (AppState) ─────────
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        refreshBVC();   // pas forceRefresh → respecte le cache 30min
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, [refreshBVC]);
+
+  const goTo      = useCallback((p, subPage = null) => { setPage(p); setSub(subPage); }, []);
+  const handleNav = useCallback((p)                 => { setPage(p); setSub(null);    }, []);
 
   if (!appReady) {
     return (
