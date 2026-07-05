@@ -1,13 +1,17 @@
 /**
  * PatriMoi — React Native (iOS / Android)
- * Compatible Xcode  |  Version 1.3
+ * Compatible Xcode  |  Version 1.4
  *
  * Architecture multi-fichiers :
  *   src/constants/   → colors.js, data.js
- *   src/utils/       → calc.js, fmt.js, api.js, conseils.js
+ *   src/utils/       → calc.js, fmt.js, api.js, conseils.js, supabase.js, auth.js
  *   src/components/  → ErrorBoundary.jsx, shared.jsx
- *   src/pages/       → PageProverbe, PageDashboard, PageActifs,
+ *   src/pages/       → PageAuth, PageProverbe, PageDashboard, PageActifs,
  *                       PageConseils, PageAPropos, PageParams
+ *
+ * Backend : Supabase (auth + sync données)
+ *   → voir backend/supabase/schema.sql pour la mise en place
+ *   → configurer SUPABASE_URL et SUPABASE_ANON_KEY dans .env
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -18,8 +22,10 @@ import { C, APP_W }           from './src/constants/colors';
 import { STORAGE_KEY, BVC_STORAGE_KEY, BVC_STALE_MS, INIT } from './src/constants/data';
 import { applyBVCCours, fetchBVC, fetchPrixOr, getBvcCache, setBvcCache } from './src/utils/api';
 import { fmtDate }             from './src/utils/fmt';
+import { getSession, loadPatrimoineData, savePatrimoineData, onAuthStateChange } from './src/utils/auth';
 import ErrorBoundary           from './src/components/ErrorBoundary';
 import { NavBar }              from './src/components/shared';
+import PageAuth                from './src/pages/PageAuth';
 import PageProverbe            from './src/pages/PageProverbe';
 import PageDashboard           from './src/pages/PageDashboard';
 import PageActifs              from './src/pages/PageActifs';
@@ -65,39 +71,72 @@ export default function PatriMoi() {
   const [page,         setPage]         = useState('proverbe');
   const [data,         setData]         = useState(INIT);
   const [sub,          setSub]          = useState(null);
-  const [appReady,     setAppReady]     = useState(false);
+
+  // États d'authentification
+  const [user,         setUser]         = useState(null);   // null = non connecté
+  const [demoMode,     setDemoMode]     = useState(false);  // true = sans compte
+  const [authReady,    setAuthReady]    = useState(false);  // session vérifiée
+  const [appReady,     setAppReady]     = useState(false);  // données chargées
+
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [bvcStatus,    setBvcStatus]    = useState(null); // null | 'ok' | 'error'
+  const [bvcStatus,    setBvcStatus]    = useState(null);
 
   const appState        = useRef(AppState.currentState);
   const isRefreshingRef = useRef(false);
   const saveTimer       = useRef(null);
 
-  // ── Chargement initial ───────────────────────────────────
+  // ── 1. Vérification session au démarrage ─────────────────
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then(stored => {
-        if (stored) {
-          try { setData(JSON.parse(stored)); } catch { /* fallback INIT */ }
-        }
-      })
-      .finally(() => setAppReady(true));
+    (async () => {
+      const session = await getSession();
+      if (session?.user) setUser(session.user);
+      setAuthReady(true);
+    })();
+
+    const unsub = onAuthStateChange((session) => {
+      setUser(session?.user ?? null);
+      if (!session) { setData(INIT); setAppReady(false); setDemoMode(false); }
+    });
+    return unsub;
   }, []);
 
-  // ── Sauvegarde — debounce 500ms ──────────────────────────
+  // ── 2. Chargement des données selon le mode ──────────────
+  useEffect(() => {
+    if (!authReady) return;
+    (async () => {
+      if (user) {
+        const { data: remoteData, error } = await loadPatrimoineData(user.id);
+        if (remoteData) {
+          setData(remoteData);
+        } else if (error) {
+          // Offline : fallback AsyncStorage
+          const stored = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
+          if (stored) { try { setData(JSON.parse(stored)); } catch {} }
+        }
+      } else if (demoMode) {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY + '_demo').catch(() => null);
+        if (stored) { try { setData(JSON.parse(stored)); } catch {} }
+      }
+      setAppReady(true);
+    })();
+  }, [authReady, user, demoMode]);
+
+  // ── 3. Sauvegarde debounce 500ms — local + Supabase ──────
   const saveData = useCallback((d) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(d)).catch(() => {});
+    saveTimer.current = setTimeout(async () => {
+      const localKey = user ? STORAGE_KEY : STORAGE_KEY + '_demo';
+      AsyncStorage.setItem(localKey, JSON.stringify(d)).catch(() => {});
+      if (user) await savePatrimoineData(user.id, d);
     }, 500);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!appReady) return;
     saveData(data);
   }, [data, appReady, saveData]);
 
-  // ── Refresh or ──────────────────────────────────────────
+  // ── 4. Refresh or ────────────────────────────────────────
   const refreshOr = useCallback(async () => {
     if (isRefreshingRef.current) return;
     isRefreshingRef.current = true;
@@ -108,14 +147,14 @@ export default function PatriMoi() {
     if (prix) setData(d => ({ ...d, prixOr: prix, lastUpdate: fmtDate() }));
   }, []);
 
-  // ── Refresh BVC ─────────────────────────────────────────
+  // ── 5. Refresh BVC ───────────────────────────────────────
   const refreshBVC = useCallback(async (force = false) => {
     const bvcData = await fetchBVC(force);
     if (bvcData) { setData(d => applyBVCCours(d, bvcData)); setBvcStatus('ok'); }
     else { setBvcStatus('error'); }
   }, []);
 
-  // ── Démarrage : cache BVC local + fetch réseau ───────────
+  // ── 6. Démarrage : cache BVC local + fetch réseau ────────
   useEffect(() => {
     if (!appReady) return;
     AsyncStorage.getItem(BVC_STORAGE_KEY).then(raw => {
@@ -134,7 +173,7 @@ export default function PatriMoi() {
     refreshBVC();
   }, [appReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── AppState : refresh au retour premier plan ────────────
+  // ── 7. AppState : refresh au retour premier plan ─────────
   useEffect(() => {
     const appStateSub = AppState.addEventListener('change', nextState => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
@@ -148,6 +187,34 @@ export default function PatriMoi() {
   const goTo      = useCallback((p, subPage = null) => { setPage(p); setSub(subPage); }, []);
   const handleNav = useCallback((p)                 => { setPage(p); setSub(null);    }, []);
 
+  const handleSignOut = useCallback(async () => {
+    const { signOut } = await import('./src/utils/auth');
+    await signOut();
+  }, []);
+
+  // ── Splashscreen ─────────────────────────────────────────
+  if (!authReady) {
+    return (
+      <SafeAreaView style={{ flex:1, backgroundColor:C.pri, alignItems:'center', justifyContent:'center' }}>
+        <Text style={{ color:C.white, fontWeight:'700', fontSize:18, marginBottom:8 }}>PatriMoi</Text>
+        <ActivityIndicator color={C.acc} size="large"/>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Écran auth ───────────────────────────────────────────
+  if (!user && !demoMode) {
+    return (
+      <ErrorBoundary>
+        <PageAuth
+          onAuthenticated={(u) => setUser(u)}
+          onDemo={() => setDemoMode(true)}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  // ── Chargement données ───────────────────────────────────
   if (!appReady) {
     return (
       <SafeAreaView style={{ flex:1, backgroundColor:C.pri, alignItems:'center', justifyContent:'center' }}>
@@ -158,6 +225,7 @@ export default function PatriMoi() {
     );
   }
 
+  // ── App principale ───────────────────────────────────────
   return (
     <ErrorBoundary>
       <SafeAreaView style={{ flex:1, backgroundColor:C.pri }}>
@@ -169,7 +237,7 @@ export default function PatriMoi() {
             {page==='actifs'    && <PageActifs    data={data} setData={setData} sub={sub} setSub={setSub}/>}
             {page==='conseils'  && <PageConseils  data={data} onNav={goTo}/>}
             {page==='apropos'   && <PageAPropos/>}
-            {page==='params'    && <PageParams/>}
+            {page==='params'    && <PageParams user={user} demoMode={demoMode} onSignOut={handleSignOut}/>}
           </View>
           <NavBar active={page} onChange={handleNav}/>
         </View>
