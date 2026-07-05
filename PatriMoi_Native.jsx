@@ -1825,7 +1825,9 @@ export default function PatriMoi() {
   const [appReady,    setAppReady]    = useState(false);
   const [isRefreshing,setIsRefreshing]= useState(false);
   const [bvcStatus,   setBvcStatus]   = useState(null); // null | 'ok' | 'error'
-  const appState = useRef(AppState.currentState);
+  const appState        = useRef(AppState.currentState);
+  const isRefreshingRef = useRef(false);   // fix: évite dep sur isRefreshing dans refreshOr
+  const saveTimer       = useRef(null);    // fix: debounce saveData 500ms
 
   // ── Chargement initial depuis AsyncStorage ──────────────
   useEffect(() => {
@@ -1838,9 +1840,12 @@ export default function PatriMoi() {
       .finally(() => setAppReady(true));
   }, []);
 
-  // ── Sauvegarde automatique à chaque modification ─────────
+  // ── Sauvegarde automatique — debounce 500ms (évite I/O à chaque frappe) ──
   const saveData = useCallback((d) => {
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(d)).catch(() => {});
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(d)).catch(() => {});
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -1849,19 +1854,21 @@ export default function PatriMoi() {
   }, [data, appReady, saveData]);
 
   // ── Refresh cours or ────────────────────────────────────
+  // fix: utilise isRefreshingRef (stable) au lieu de isRefreshing (état) → deps vides
   const refreshOr = useCallback(async () => {
-    if (isRefreshing) return;
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
     setIsRefreshing(true);
     const prix = await fetchPrixOr();
+    isRefreshingRef.current = false;
     setIsRefreshing(false);
     if (prix) {
       setData(d => ({ ...d, prixOr: prix, lastUpdate: fmtDate() }));
     }
-  }, [isRefreshing]);
+  }, []); // stable — PageDashboard ne re-render pas au toggle isRefreshing
 
   // ── Refresh cours BVC ────────────────────────────────────
   const refreshBVC = useCallback(async (force = false) => {
-    setBvcStatus(s => s === null ? null : s); // ne pas reset si déjà ok
     const bvcData = await fetchBVC(force);
     if (bvcData) {
       setData(d => applyBVCCours(d, bvcData));
@@ -1879,14 +1886,15 @@ export default function PatriMoi() {
   }, [appReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Refresh au retour en premier plan (AppState) ─────────
+  // fix: renommé appStateSub pour éviter le shadowing de la state variable `sub`
   useEffect(() => {
-    const sub = AppState.addEventListener('change', nextState => {
+    const appStateSub = AppState.addEventListener('change', nextState => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
         refreshBVC();   // pas forceRefresh → respecte le cache 30min
       }
       appState.current = nextState;
     });
-    return () => sub.remove();
+    return () => appStateSub.remove();
   }, [refreshBVC]);
 
   const goTo      = useCallback((p, subPage = null) => { setPage(p); setSub(subPage); }, []);
