@@ -1,0 +1,37 @@
+# Secrets — ne jamais committer
+.env
+.env.local
+.env.*.local
+
+# Dépendances
+node_modules/
+
+# React Native / Metro
+.metro-health-check*
+
+# iOS
+ios/Pods/
+ios/build/
+*.xcworkspace
+*.xcuserstate
+
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+dist/
+build/
