@@ -241,14 +241,13 @@ async function fetchPrixOr() {
 // API COURS BVC — GitHub Actions batch (toutes les heures)
 // Cache 30 min : si données récentes, pas de fetch inutile.
 // =========================================================
-const BVC_COURS_URL =
-  'https://raw.githubusercontent.com/Zizou13221/patrimoi-bvc/main/bvc_cours.json';
-
-const BVC_CACHE_MS = 30 * 60 * 1000; // 30 minutes
+const BVC_COURS_URL   = 'https://raw.githubusercontent.com/Zizou13221/patrimoi-bvc/main/bvc_cours.json';
+const BVC_STORAGE_KEY = '@patrimoi_bvc_v1'; // persist cache entre sessions
+const BVC_CACHE_MS    = 30 * 60 * 1000;    // 30 minutes — validité cache in-memory
+const BVC_STALE_MS    = 24 * 60 * 60 * 1000; // 24h  — max âge pour cache persisté
 let _bvcCache = null; // { data, fetchedAt }
 
 async function fetchBVC(forceRefresh = false) {
-  // Utiliser le cache si moins de 30 min
   if (!forceRefresh && _bvcCache && (Date.now() - _bvcCache.fetchedAt) < BVC_CACHE_MS) {
     return _bvcCache.data;
   }
@@ -258,6 +257,8 @@ async function fetchBVC(forceRefresh = false) {
     const json = await res.json();
     if (!json?.cours || typeof json.cours !== 'object') return null;
     _bvcCache = { data: json, fetchedAt: Date.now() };
+    // Persist cache : survit au redémarrage de l'app
+    AsyncStorage.setItem(BVC_STORAGE_KEY, JSON.stringify(_bvcCache)).catch(() => {});
     return json;
   } catch {
     return null;
@@ -290,9 +291,10 @@ function applyBVCCours(data, bvcData) {
 // =========================================================
 // CONSEILS PERSONNALISÉS (générés depuis le vrai portfolio)
 // =========================================================
+// Retourne { conseils, total } pour éviter que PageConseils recalcule totalPatrimoine
 function generateConseils(data) {
   const total   = totalPatrimoine(data);
-  if (total === 0) return [];
+  if (total === 0) return { conseils: [], total: 0 };
   const conseils = [];
 
   const liqTotal  = calcLiquide(data.liquidites) + calcBanque(data.banque);
@@ -369,7 +371,40 @@ function generateConseils(data) {
     });
   }
 
-  return conseils.sort((a, b) => a.priority - b.priority);
+  return { conseils: conseils.sort((a, b) => a.priority - b.priority), total };
+}
+
+// =========================================================
+// ERROR BOUNDARY — capture les crashes JS, affiche un écran de secours
+// =========================================================
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+    this._retry = this._retry.bind(this);
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[PatriMoi ErrorBoundary]', error, info?.componentStack ?? '');
+  }
+  _retry() { this.setState({ hasError: false, error: null }); }
+  render() {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <SafeAreaView style={{ flex:1, backgroundColor:C.pri, alignItems:'center', justifyContent:'center', padding:24 }}>
+        <Text style={{ color:C.white, fontWeight:'700', fontSize:18, marginBottom:12 }}>Une erreur est survenue</Text>
+        <Text style={{ color:'rgba(180,230,200,0.85)', fontSize:13, textAlign:'center', marginBottom:20 }}>
+          {this.state.error?.message ?? 'Erreur inconnue'}
+        </Text>
+        <TouchableOpacity onPress={this._retry}
+          style={{ backgroundColor:C.acc, borderRadius:10, paddingHorizontal:20, paddingVertical:10 }}>
+          <Text style={{ color:C.white, fontWeight:'700' }}>Réessayer</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 }
 
 // =========================================================
@@ -1544,8 +1579,8 @@ const PageActifs = React.memo(function PageActifs({ data, setData, sub, setSub }
 // PAGE 4 — CONSEILS PERSONNALISÉS
 // =========================================================
 const PageConseils = React.memo(function PageConseils({ data, onNav }) {
-  const conseils = useMemo(() => generateConseils(data), [data]);
-  const total    = useMemo(() => totalPatrimoine(data),  [data]);
+  // fix: generateConseils retourne déjà total → un seul useMemo au lieu de 2
+  const { conseils, total } = useMemo(() => generateConseils(data), [data]);
 
   const priorityLabel = (p) => p === 1 ? 'Urgent' : p === 2 ? 'Important' : 'À considérer';
   const priorityBg    = (p) => p === 1 ? '#FFF0F0' : p === 2 ? '#FFF8E8' : '#F0F8FF';
@@ -1881,6 +1916,20 @@ export default function PatriMoi() {
   // ── Fetch or + BVC au démarrage (parallèle, silencieux) ──
   useEffect(() => {
     if (!appReady) return;
+    // 1. Réchauffer le cache BVC depuis AsyncStorage (instantané, hors réseau)
+    AsyncStorage.getItem(BVC_STORAGE_KEY).then(raw => {
+      if (!raw) return;
+      try {
+        const cached = JSON.parse(raw);
+        if (cached?.data?.cours && cached?.fetchedAt &&
+            (Date.now() - cached.fetchedAt) < BVC_STALE_MS && !_bvcCache) {
+          _bvcCache = cached;
+          setData(d => applyBVCCours(d, cached.data));
+          setBvcStatus('ok');
+        }
+      } catch {}
+    }).catch(() => {});
+    // 2. Fetch frais (réseau) — en parallèle
     refreshOr();
     refreshBVC();
   }, [appReady]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1911,19 +1960,21 @@ export default function PatriMoi() {
   }
 
   return (
-    <SafeAreaView style={{ flex:1, backgroundColor:C.pri }}>
-      <StatusBar barStyle="light-content" backgroundColor={C.pri}/>
-      <View style={{ flex:1, backgroundColor:C.bg, maxWidth:APP_W, alignSelf:'center', width:'100%' }}>
-        <View style={{ flex:1 }}>
-          {page==='proverbe'  && <PageProverbe  onNav={goTo} data={data}/>}
-          {page==='dashboard' && <PageDashboard data={data} onNav={goTo} onRefreshOr={refreshOr} isRefreshing={isRefreshing} onRefreshBVC={refreshBVC} bvcStatus={bvcStatus}/>}
-          {page==='actifs'    && <PageActifs    data={data} setData={setData} sub={sub} setSub={setSub}/>}
-          {page==='conseils'  && <PageConseils  data={data} onNav={goTo}/>}
-          {page==='apropos'   && <PageAPropos/>}
-          {page==='params'    && <PageParams/>}
+    <ErrorBoundary>
+      <SafeAreaView style={{ flex:1, backgroundColor:C.pri }}>
+        <StatusBar barStyle="light-content" backgroundColor={C.pri}/>
+        <View style={{ flex:1, backgroundColor:C.bg, maxWidth:APP_W, alignSelf:'center', width:'100%' }}>
+          <View style={{ flex:1 }}>
+            {page==='proverbe'  && <PageProverbe  onNav={goTo} data={data}/>}
+            {page==='dashboard' && <PageDashboard data={data} onNav={goTo} onRefreshOr={refreshOr} isRefreshing={isRefreshing} onRefreshBVC={refreshBVC} bvcStatus={bvcStatus}/>}
+            {page==='actifs'    && <PageActifs    data={data} setData={setData} sub={sub} setSub={setSub}/>}
+            {page==='conseils'  && <PageConseils  data={data} onNav={goTo}/>}
+            {page==='apropos'   && <PageAPropos/>}
+            {page==='params'    && <PageParams/>}
+          </View>
+          <NavBar active={page} onChange={handleNav}/>
         </View>
-        <NavBar active={page} onChange={handleNav}/>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
