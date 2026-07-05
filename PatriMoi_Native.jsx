@@ -221,7 +221,7 @@ async function fetchPrixOr() {
 // Remplacez BVC_COURS_URL par l'URL raw de VOTRE repo.
 // =========================================================
 const BVC_COURS_URL =
-  'https://raw.githubusercontent.com/TON_USER/TON_REPO/main/bvc_cours.json';
+  'https://raw.githubusercontent.com/Zizou13221/patrimoi-bvc/main/bvc_cours.json';
 
 async function fetchBVC() {
   try {

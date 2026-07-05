@@ -2,11 +2,9 @@ name: BVC Cours Update
 
 on:
   schedule:
-    # Heure Maroc = UTC+1 (UTC+0 en hiver)
-    # Ouverture BVC : 09h30 Maroc = 08h30 UTC
-    - cron: '30 8 * * 1-5'
-    # Clôture BVC : 15h30 Maroc = 14h30 UTC
-    - cron: '30 13 * * 1-5'
+    # Toutes les heures en semaine pendant les heures de marché BVC
+    # 08h00–15h00 UTC = 09h00–16h00 Maroc
+    - cron: '0 8-15 * * 1-5'
 
   # Permet de déclencher manuellement depuis GitHub
   workflow_dispatch:
