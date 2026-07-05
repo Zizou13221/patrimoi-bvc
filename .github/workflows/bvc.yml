@@ -1,0 +1,54 @@
+name: BVC Cours Update
+
+on:
+  schedule:
+    # Heure Maroc = UTC+1 (UTC+0 en hiver)
+    # Ouverture BVC : 09h30 Maroc = 08h30 UTC
+    - cron: '30 8 * * 1-5'
+    # Clôture BVC : 15h30 Maroc = 14h30 UTC
+    - cron: '30 13 * * 1-5'
+
+  # Permet de déclencher manuellement depuis GitHub
+  workflow_dispatch:
+
+jobs:
+  update-bvc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write   # nécessaire pour git push
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run BVC scraper
+        run: |
+          python bvc_batch/bvc_batch.py \
+            --output bvc_cours.json \
+            --pause 0.5
+        # Le script retourne exit code 1 si des tickers ont échoué,
+        # mais on ne bloque pas le commit pour autant (continue-on-error)
+        continue-on-error: true
+
+      - name: Vérifier que le JSON est valide
+        run: python -c "import json; json.load(open('bvc_cours.json')); print('JSON valide ✓')"
+
+      - name: Commit & push si changements
+        run: |
+          git config user.name  "patrimoi-bot"
+          git config user.email "bot@patrimoi.app"
+          git add bvc_cours.json
+          # Ne commit que si le fichier a changé
+          git diff --staged --quiet || git commit -m "chore: BVC update $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
