@@ -25,9 +25,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'scripts/requirements.txt'
 
       - name: Installer dépendances
-        run: pip install requests beautifulsoup4 lxml
+        run: pip install -r scripts/requirements.txt
 
       - name: Scraper BVC (lematin.ma — 1 requête, tous les tickers)
         run: python scripts/scrape_lematin.py --output bvc_cours.json
