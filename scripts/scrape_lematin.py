@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-PatriMoi — Scraper BVC via lematin.ma
-Source : page /bourse-de-casablanca (données serveur-rendues, 1 seule requête)
+PatriMoi — Scraper BVC
+Source 1 (priorité) : lematin.ma  — 1 requête, tous les tickers
+Source 2 (fallback)  : medias24.com API — par ticker via ISIN
 
-Output : bvc_cours.json
-Usage  : python scripts/scrape_lematin.py [--output bvc_cours.json]
+Usage : python scripts/scrape_lematin.py [--output bvc_cours.json]
 """
 
 import re
@@ -18,10 +18,34 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
-# ── URL source ───────────────────────────────────────────────────────────────
+# ── Source 1 : lematin.ma ─────────────────────────────────────────────────────
 LEMATIN_URL = "https://lematin.ma/bourse-de-casablanca"
 
-HEADERS = {
+# ── Source 2 : medias24.com (fallback) ────────────────────────────────────────
+TICKERS_MEDIAS24 = {
+    "ATW":  "MA0000011885",
+    "BCP":  "MA0000011884",
+    "CIH":  "MA0000011899",
+    "BOA":  "MA0000011895",
+    "CDM":  "MA0000011893",
+    "BMCI": "MA0000011890",
+    "IAM":  "MA0000011880",
+    "ATL":  "MA0000011902",
+    "WAA":  "MA0000011909",
+    "ADH":  "MA0000011922",
+    "ALM":  "MA0000011924",
+    "RDS":  "MA0000011920",
+    "AFG":  "MA0000011887",
+    "LHM":  "MA0000011930",
+    "HPS":  "MA0000011910",
+    "MNG":  "MA0000011935",
+    "MSA":  "MA0000011928",
+    "TMA":  "MA0000011926",
+    "LBV":  "MA0000011919",
+    "MUT":  "MA0000011914",
+}
+
+HEADERS_BROWSER = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -32,25 +56,27 @@ HEADERS = {
     "Referer": "https://lematin.ma/",
 }
 
-# ── Corrections ticker ────────────────────────────────────────────────────────
-# Certains slugs lematin.ma ≠ ticker officiel BVC utilisé dans PatriMoi.
-# Format : slug_url → ticker_patrimoi
-SLUG_TO_TICKER = {
-    "bce": "BOA",   # Bank of Africa (ticker BVC = BCE, PatriMoi utilise BOA)
-    "bci": "BMCI",  # BMCI (ticker BVC = BCI, PatriMoi utilise BMCI)
-    "gaz": "AFG",   # Afriquia Gaz (ticker BVC = GAZ, PatriMoi utilise AFG)
-    "msa": "MSA",   # Marsa Maroc (garder)
-    "gtm": "GTM",   # SGTM — Société Générale des Travaux du Maroc
+HEADERS_API = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://medias24.com/bourse/",
 }
 
-# ── Parsing ───────────────────────────────────────────────────────────────────
+# Corrections slug URL → ticker PatriMoi
+SLUG_TO_TICKER = {
+    "bce": "BOA",
+    "bci": "BMCI",
+    "gaz": "AFG",
+}
 
-def parse_price(text: str) -> float | None:
-    """
-    Extrait le cours depuis le texte d'un lien lematin.
-    Format : 'NOM SOCIETE \n 253.15,00 MAD \n 0.46 %'
-    Ici '253.15' est le prix avec '.' comme séparateur décimal, ',00' = centimes.
-    """
+
+# ── Helpers parsing ───────────────────────────────────────────────────────────
+
+def parse_price(text: str):
     m = re.search(r"([\d]+(?:[.][\d]+)?),\d+\s*MAD", text)
     if not m:
         return None
@@ -60,8 +86,7 @@ def parse_price(text: str) -> float | None:
         return None
 
 
-def parse_variation(text: str) -> float | None:
-    """Extrait la variation % depuis le texte."""
+def parse_variation(text: str):
     m = re.search(r"([+-]?\d+(?:[.,]\d+)?)\s*%", text)
     if not m:
         return None
@@ -71,8 +96,87 @@ def parse_variation(text: str) -> float | None:
         return None
 
 
+# ── Source 1 : lematin.ma ─────────────────────────────────────────────────────
+
+def scrape_lematin() -> dict:
+    """
+    Retourne { TICKER: { cours, variation } } depuis lematin.ma.
+    Lève une exception si la page est inaccessible.
+    """
+    resp = requests.get(LEMATIN_URL, headers=HEADERS_BROWSER, timeout=20)
+    resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    cours = {}
+
+    links = soup.find_all(
+        "a",
+        href=re.compile(r"/bourse-de-casablanca/societe-cote/")
+    )
+
+    for link in links:
+        href = link.get("href", "")
+        m = re.search(r"/societe-cote/([a-z0-9]+)$", href)
+        if not m:
+            continue
+        slug   = m.group(1).lower()
+        ticker = SLUG_TO_TICKER.get(slug, slug.upper())
+        text   = link.get_text(separator="\n", strip=True)
+        prix   = parse_price(text)
+        var    = parse_variation(text)
+
+        if prix is None or prix == 0:
+            continue
+
+        cours[ticker] = {
+            "cours":     round(prix, 2),
+            "variation": round(var, 2) if var is not None else 0.0,
+        }
+
+    return cours
+
+
+# ── Source 2 : medias24.com ───────────────────────────────────────────────────
+
+def fetch_medias24(ticker: str, isin: str) -> dict | None:
+    today      = datetime.date.today().isoformat()
+    url = (
+        f"https://medias24.com/content/api"
+        f"?method=getPriceHistory&ISIN={isin}"
+        f"&format=json&from=2024-01-01&to={today}"
+    )
+    try:
+        r = requests.get(url, headers=HEADERS_API, timeout=12)
+        r.raise_for_status()
+        data = r.json()
+        if not data or not isinstance(data, list) or len(data) == 0:
+            return None
+        last = data[-1]
+        return {
+            "cours":     round(float(last.get("close", last.get("cloture", 0))), 2),
+            "variation": 0.0,
+        }
+    except Exception:
+        return None
+
+
+def scrape_medias24(tickers: dict, pause: float = 0.4) -> dict:
+    """Récupère les tickers manquants via medias24.com."""
+    cours = {}
+    for ticker, isin in tickers.items():
+        result = fetch_medias24(ticker, isin)
+        if result:
+            cours[ticker] = result
+            print(f"   medias24 ✓ {ticker} = {result['cours']} MAD")
+        else:
+            print(f"   medias24 ✗ {ticker}", file=sys.stderr)
+        time.sleep(pause)
+    return cours
+
+
+# ── Fallback local ────────────────────────────────────────────────────────────
+
 def charger_precedents(output_path: str) -> dict:
-    """Charge le JSON existant pour fallback si scraping échoue."""
     if os.path.exists(output_path):
         try:
             with open(output_path, encoding="utf-8") as f:
@@ -82,85 +186,52 @@ def charger_precedents(output_path: str) -> dict:
     return {}
 
 
-# ── Scraper principal ─────────────────────────────────────────────────────────
-
-def scrape_lematin() -> dict:
-    """
-    Scrape tous les cours BVC depuis lematin.ma/bourse-de-casablanca.
-    Retourne un dict { TICKER: { cours, variation } }
-    """
-    resp = requests.get(LEMATIN_URL, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-
-    soup = BeautifulSoup(resp.text, "html.parser")
-    cours = {}
-
-    # Les cours sont dans des liens href=/bourse-de-casablanca/societe-cote/{slug}
-    links = soup.find_all(
-        "a",
-        href=re.compile(r"/bourse-de-casablanca/societe-cote/")
-    )
-
-    for link in links:
-        href = link.get("href", "")
-        # Extraire le slug depuis l'URL
-        m = re.search(r"/societe-cote/([a-z0-9]+)$", href)
-        if not m:
-            continue
-
-        slug = m.group(1).lower()
-        ticker = SLUG_TO_TICKER.get(slug, slug.upper())
-
-        text = link.get_text(separator="\n", strip=True)
-        prix = parse_price(text)
-        variation = parse_variation(text)
-
-        if prix is None or prix == 0:
-            continue  # ignorer les lignes sans prix (SANLAM, CMT suspendues)
-
-        cours[ticker] = {
-            "cours":     round(prix, 2),
-            "variation": round(variation, 2) if variation is not None else 0.0,
-        }
-
-    return cours
-
-
-# ── Runner ────────────────────────────────────────────────────────────────────
+# ── Runner principal ──────────────────────────────────────────────────────────
 
 def run(output_path: str = "bvc_cours.json") -> bool:
     print(f"⏱  Démarrage — {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"   Source : {LEMATIN_URL}")
 
     cours_precedents = charger_precedents(output_path)
+    cours            = {}
+    source_utilisee  = "aucune"
 
+    # ── Tentative 1 : lematin.ma ──────────────────────────────────────────────
+    print("→ Tentative lematin.ma …")
     try:
         cours = scrape_lematin()
-    except requests.exceptions.RequestException as e:
-        print(f"✗ Erreur réseau : {e}", file=sys.stderr)
-        cours = {}
+        if cours:
+            source_utilisee = "lematin.ma"
+            print(f"✓ lematin.ma : {len(cours)} tickers extraits")
+        else:
+            print("✗ lematin.ma : page vide ou format inattendu")
+    except Exception as e:
+        print(f"✗ lematin.ma : {e}")
 
+    # ── Tentative 2 : medias24.com (si lematin a échoué) ─────────────────────
     if not cours:
-        print("✗ Aucune donnée extraite — conservation du JSON précédent", file=sys.stderr)
-        if not cours_precedents:
-            return False
-        # Marquer les données comme stale
+        print("→ Tentative medias24.com …")
+        cours = scrape_medias24(TICKERS_MEDIAS24, pause=0.4)
+        if cours:
+            source_utilisee = "medias24.com"
+            print(f"✓ medias24.com : {len(cours)} tickers extraits")
+        else:
+            print("✗ medias24.com : aucune donnée")
+
+    # ── Fallback : données précédentes (stale) ────────────────────────────────
+    if not cours:
+        print("⚠ Fallback : conservation des données précédentes (stale)")
         cours = {
             k: {**v, "stale": True}
             for k, v in cours_precedents.items()
         }
-        succes, echecs = 0, len(cours)
-    else:
-        succes = len(cours)
-        echecs = 0
-        print(f"✓ {succes} tickers extraits")
-        for ticker, d in sorted(cours.items()):
-            signe = "+" if d["variation"] >= 0 else ""
-            print(f"   {ticker:6s} {d['cours']:>10.2f} MAD  {signe}{d['variation']:.2f}%")
+        source_utilisee = "stale"
+
+    succes = len([v for v in cours.values() if not v.get("stale")])
+    echecs = len(cours) - succes
 
     output = {
         "updated": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "source":  "lematin.ma",
+        "source":  source_utilisee,
         "marche":  "BVC — Bourse des Valeurs de Casablanca",
         "succes":  succes,
         "echecs":  echecs,
@@ -170,16 +241,13 @@ def run(output_path: str = "bvc_cours.json") -> bool:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅  {succes} tickers → {output_path}")
+    print(f"\n✅  {succes} tickers frais → {output_path}")
     return succes > 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Scraper BVC via lematin.ma")
-    parser.add_argument(
-        "--output", default="bvc_cours.json",
-        help="Chemin du JSON de sortie (défaut: bvc_cours.json)"
-    )
+    parser = argparse.ArgumentParser(description="Scraper BVC (lematin + medias24 fallback)")
+    parser.add_argument("--output", default="bvc_cours.json")
     args = parser.parse_args()
     ok = run(output_path=args.output)
     sys.exit(0 if ok else 1)
