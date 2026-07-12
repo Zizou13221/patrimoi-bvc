@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PatriMoi — Scraper BVC
-Source 1 : Yahoo Finance API (symboles .CS) — fiable, non bloqué
+Source 1 : yfinance (symboles .CS) — gère le crumb Yahoo automatiquement
 Source 2 : lematin.ma (serveur-rendu)
 Source 3 : medias24.com (par ISIN)
 Fallback  : données précédentes (stale)
@@ -19,6 +19,7 @@ import time
 
 import requests
 from bs4 import BeautifulSoup
+import yfinance as yf
 
 # ── Mapping ticker PatriMoi → symbole Yahoo Finance (.CS = Casablanca) ─────────
 # Format Yahoo : TICKER.CS  (ex: IAM.CS, ATW.CS)
@@ -99,50 +100,58 @@ SLUG_TO_TICKER = {
 }
 
 
-# ── Source 1 : Yahoo Finance ──────────────────────────────────────────────────
+# ── Source 1 : yfinance (gère le crumb Yahoo automatiquement) ─────────────────
 
 def scrape_yahoo() -> dict:
     """
-    Récupère les cours via l'API Yahoo Finance v7/finance/quote.
+    Récupère les cours via la lib yfinance (gère crumb/cookie automatiquement).
     Retourne { TICKER: { cours, variation } }
     """
-    symbols = list(YAHOO_SYMBOLS.values())
-    # Yahoo accepte jusqu'à ~50 symboles par requête
-    url = "https://query1.finance.yahoo.com/v7/finance/quote"
-    params = {
-        "symbols":    ",".join(symbols),
-        "fields":     "regularMarketPrice,regularMarketChangePercent",
-        "formatted":  "false",
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept":     "application/json",
-    }
-
-    resp = requests.get(url, params=params, headers=headers, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-
-    quotes = data.get("quoteResponse", {}).get("result", [])
-    if not quotes:
-        raise ValueError("Yahoo Finance : réponse vide")
-
-    # Inverser le mapping Yahoo → PatriMoi
     yahoo_to_patrimoi = {v: k for k, v in YAHOO_SYMBOLS.items()}
+    symbols = list(YAHOO_SYMBOLS.values())
+
+    # Télécharge les données du dernier jour pour tous les symboles en une fois
+    raw = yf.download(
+        tickers=symbols,
+        period="2d",
+        interval="1d",
+        auto_adjust=True,
+        progress=False,
+        group_by="ticker",
+    )
+
     cours = {}
 
-    for q in quotes:
-        symbol = q.get("symbol", "")
-        ticker = yahoo_to_patrimoi.get(symbol)
-        if not ticker:
-            continue
-        price = q.get("regularMarketPrice")
-        change = q.get("regularMarketChangePercent", 0.0)
-        if price and price > 0:
-            cours[ticker] = {
-                "cours":     round(float(price), 2),
-                "variation": round(float(change), 2),
-            }
+    for yahoo_sym in symbols:
+        patrimoi_ticker = yahoo_to_patrimoi[yahoo_sym]
+        try:
+            if len(symbols) == 1:
+                close_series = raw["Close"]
+            else:
+                close_series = raw[yahoo_sym]["Close"]
+
+            close_series = close_series.dropna()
+            if close_series.empty:
+                continue
+
+            price = float(close_series.iloc[-1])
+            # Variation vs avant-veille si dispo
+            if len(close_series) >= 2:
+                prev  = float(close_series.iloc[-2])
+                variation = round((price - prev) / prev * 100, 2) if prev else 0.0
+            else:
+                variation = 0.0
+
+            if price > 0:
+                cours[patrimoi_ticker] = {
+                    "cours":     round(price, 2),
+                    "variation": variation,
+                }
+        except Exception as e:
+            print(f"   yfinance ✗ {patrimoi_ticker} ({yahoo_sym}): {e}", file=sys.stderr)
+
+    if not cours:
+        raise ValueError("yfinance : aucun cours récupéré")
 
     return cours
 
