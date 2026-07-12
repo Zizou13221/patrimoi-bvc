@@ -45,4 +45,5 @@ jobs:
           git config user.email "bot@patrimoi.app"
           git add bvc_cours.json
           git diff --staged --quiet || git commit -m "chore: BVC update $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
           git push

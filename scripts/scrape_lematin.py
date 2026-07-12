@@ -241,8 +241,9 @@ def run(output_path: str = "bvc_cours.json") -> bool:
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
 
-    print(f"\n✅  {succes} tickers frais → {output_path}")
-    return succes > 0
+    print(f"\n✅  {succes} tickers frais, {echecs} stale → {output_path}")
+    # Retourne True même en mode stale (le JSON est valide, juste pas frais)
+    return True
 
 
 if __name__ == "__main__":
