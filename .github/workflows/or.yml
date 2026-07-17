@@ -50,6 +50,10 @@ jobs:
         run: |
           git config user.name  "patrimoi-bot"
           git config user.email "bot@patrimoi.app"
+          if [ ! -f or_prix.json ]; then
+            echo "or_prix.json absent, rien a committer."
+            exit 0
+          fi
           git add or_prix.json
           if git diff --staged --quiet; then
             echo "Aucun changement a committer."
