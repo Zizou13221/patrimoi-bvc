@@ -36,11 +36,15 @@ jobs:
 
       - name: Vérifier que le JSON est valide
         run: |
-          python -c "
+          if [ -f or_prix.json ]; then
+            python -c "
           import json
           d = json.load(open('or_prix.json'))
           print('JSON valide - ' + str(d['prixOr']) + ' DH/g (source: ' + d['source'] + ')')
-          "
+            "
+          else
+            echo "or_prix.json absent (scraper a echoue ou premiere execution sans fichier precedent)"
+          fi
 
       - name: Commit & push si changements
         run: |
