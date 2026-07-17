@@ -16,20 +16,11 @@ import sys
 import os
 
 import requests
-
-HEADERS_BROWSER = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-    "Accept-Language": "fr-FR,fr;q=0.9",
-}
+import cloudscraper
 
 TROY_OZ_TO_GRAM = 31.1035   # 1 once troy = 31.1035 grammes
 
-# ── Source 1 : 18k.ma ────────────────────────────────────────────────────────
+# ── Source 1 : 18k.ma (via cloudscraper — contourne Cloudflare) ──────────────
 
 PATTERNS_18K = [
     re.compile(r'(?:24k?|gramme?)[^<\d]*?(\d{3,4}(?:[.,]\d{1,2})?)\s*(?:dh|mad|dirham)', re.IGNORECASE),
@@ -40,13 +31,15 @@ PATTERNS_18K = [
 
 
 def scrape_18k_ma() -> float | None:
-    """Scrape 18k.ma pour le prix de l'or 24k en DH/g."""
+    """
+    Scrape 18k.ma pour le prix de l'or 24k en DH/g.
+    Utilise cloudscraper pour contourner la protection Cloudflare.
+    """
     try:
-        resp = requests.get(
-            "https://www.18k.ma/prix-de-lor",
-            headers=HEADERS_BROWSER,
-            timeout=15,
+        scraper = cloudscraper.create_scraper(
+            browser={"browser": "chrome", "platform": "darwin", "mobile": False}
         )
+        resp = scraper.get("https://www.18k.ma/prix-de-lor", timeout=20)
         resp.raise_for_status()
         html = resp.text
         for pat in PATTERNS_18K:
@@ -59,9 +52,9 @@ def scrape_18k_ma() -> float | None:
                         return val
                 except ValueError:
                     continue
-        print("   ⚠ 18k.ma : aucun pattern ne correspond (HTML inattendu ou bloqué)", file=sys.stderr)
-    except requests.RequestException as e:
-        print(f"   ⚠ 18k.ma erreur réseau : {e}", file=sys.stderr)
+        print("   ⚠ 18k.ma : aucun pattern ne correspond (HTML inattendu)", file=sys.stderr)
+    except Exception as e:
+        print(f"   ⚠ 18k.ma erreur : {e}", file=sys.stderr)
     return None
 
 
