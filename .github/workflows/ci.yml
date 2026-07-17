@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. Lint + TypeScript ────────────────────────────────────────────────────
+  lint:
+    name: Lint & TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npx eslint "src/**/*.{ts,tsx,js,jsx}" --max-warnings=0
+
+      - name: TypeScript (noEmit)
+        run: npx tsc --noEmit
+
+  # ── 2. Tests unitaires ──────────────────────────────────────────────────────
+  test:
+    name: Tests unitaires
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Jest
+        run: npx jest --coverage --forceExit --ci
+        env:
+          CI: true
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+
+  # ── 3. Tests RLS Supabase (staging) ────────────────────────────────────────
+  test-rls:
+    name: Tests RLS Supabase
+    runs-on: ubuntu-latest
+    needs: lint
+    if: env.SUPABASE_DB_URL_STAGING != ''
+    env:
+      SUPABASE_DB_URL_STAGING: ${{ secrets.SUPABASE_DB_URL_STAGING }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer psql
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Appliquer migrations sur staging
+        run: |
+          for f in backend/supabase/migrations/*.sql; do
+            echo "▸ Migration: $f"
+            psql "$SUPABASE_DB_URL_STAGING" -f "$f" || true
+          done
+
+      - name: Exécuter tests RLS
+        run: psql "$SUPABASE_DB_URL_STAGING" -f backend/supabase/tests/rls_policies.sql
+
+  # ── 4. Build iOS (vérification) ─────────────────────────────────────────────
+  build-ios:
+    name: Build iOS (vérification)
+    runs-on: macos-15
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-
+
+      - name: Pod install
+        run: cd ios && pod install --repo-update
+
+      - name: Xcode build (simulator — sans signature)
+        run: |
+          xcodebuild build \
+            -workspace ios/PatriMoiApp.xcworkspace \
+            -scheme PatriMoiApp \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color
+        env:
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+
+  # ── 5. Maestro E2E (simulateur iOS) ─────────────────────────────────────────
+  e2e:
+    name: Maestro E2E
+    runs-on: macos-15
+    needs: build-ios
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+
+      - name: Pod install
+        run: cd ios && pod install
+
+      - name: Installer Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+        # Ajoute maestro au PATH
+      - run: echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Lancer simulateur iPhone 16
+        run: |
+          UDID=$(xcrun simctl list devices available | grep "iPhone 16 " | head -1 | grep -E -o '\(([0-9A-F-]+)\)' | tr -d '()')
+          xcrun simctl boot "$UDID" || true
+          echo "SIM_UDID=$UDID" >> $GITHUB_ENV
+
+      - name: Build & installer app sur simulateur
+        run: |
+          xcodebuild build \
+            -workspace ios/PatriMoiApp.xcworkspace \
+            -scheme PatriMoiApp \
+            -configuration Debug \
+            -destination "id=$SIM_UDID" \
+            -derivedDataPath /tmp/dd \
+            CODE_SIGNING_ALLOWED=NO | xcpretty
+          APP_PATH=$(find /tmp/dd -name "*.app" | head -1)
+          xcrun simctl install "$SIM_UDID" "$APP_PATH"
+        env:
+          SIM_UDID: ${{ env.SIM_UDID }}
+
+      - name: Exécuter flows Maestro
+        run: maestro test .maestro/ --format junit --output maestro-results.xml
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '90000'
+
+      - name: Publier résultats
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: maestro-results.xml
+          check_name: Maestro E2E

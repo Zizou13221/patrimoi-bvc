@@ -1,0 +1,51 @@
+# PatriMoi — Flow E2E #2 : Ajout actif + sync
+# Parcours : dashboard → actifs → PEA → ajouter titre → retour dashboard
+appId: ma.patrimoi.app
+---
+- launchApp
+
+# ── Naviguer vers Actifs ─────────────────────────────────────
+- tapOn:
+    text: "Actifs"
+- waitForAnimationToEnd
+
+# ── Ouvrir PEA ───────────────────────────────────────────────
+- tapOn:
+    text: "PEA"
+- waitForAnimationToEnd
+- assertVisible: "Compte PEA"
+
+# ── Ajouter un titre ─────────────────────────────────────────
+- tapOn:
+    text: "Ajouter un actif financier"
+- assertVisible: "Ajouter un titre BVC"
+
+- tapOn:
+    text: "Action cotee BVC"
+- tapOn:
+    text: "IAM"
+
+- tapOn:
+    text: "Prix d'achat unitaire"
+- inputText: "100"
+
+- tapOn:
+    text: "Cours actuel"
+- inputText: "110"
+
+- tapOn:
+    text: "Quantite"
+- inputText: "10"
+
+- tapOn:
+    text: "Ajouter"
+
+# ── Titre ajouté visible dans la liste ───────────────────────
+- waitForAnimationToEnd
+- assertVisible: "IAM"
+
+# ── Retour dashboard — sync indicator ────────────────────────
+- tapOn:
+    text: "Dashboard"
+- waitForAnimationToEnd
+- assertVisible: "Patrimoine total"

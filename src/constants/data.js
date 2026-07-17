@@ -5,11 +5,19 @@ export const STORAGE_KEY     = '@patrimoi_data_v1';
 export const BVC_STORAGE_KEY = '@patrimoi_bvc_v1';
 
 // =========================================================
-// PARAMÈTRES CACHE BVC
+// PARAMÈTRES CACHE BVC (Phase 2 DAT v2.0)
+// BVC_COURS_URL supprimé — le client ne contacte plus GitHub raw directement.
+// La source est market_cache (Supabase) via l'Edge Function.
 // =========================================================
-export const BVC_COURS_URL = 'https://raw.githubusercontent.com/Zizou13221/patrimoi-bvc/main/bvc_cours.json';
 export const BVC_CACHE_MS  = 30 * 60 * 1000;       // 30 min — validité cache in-memory
 export const BVC_STALE_MS  = 24 * 60 * 60 * 1000;  // 24h  — max âge cache persisté
+
+// =========================================================
+// PROXY EDGE FUNCTION (v2.0 — proxy obligatoire, pas de fallback)
+// USE_PROXY supprimé : le proxy est toujours actif.
+// =========================================================
+export const SUPABASE_PROJECT_ID = 'fwgsdjhavrqrqwmydwxf';
+export const PROXY_BASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data-proxy`;
 
 // =========================================================
 // PROVERBES (rotation par jour de l'année)
@@ -45,15 +53,15 @@ export const INIT = {
     { banque:'Attijariwafa Bank', solde:85000,  compte:'Compte courant' },
   ],
   carnet: [
-    { banque:'CIH Bank',        solde:30000, taux:3.0, rappel:{ montant:500,  freq:'Mensuel',     prochaine:'01/02/2025' } },
-    { banque:'Banque Populaire', solde:15000, taux:2.5, rappel:{ montant:1000, freq:'Trimestriel', prochaine:'01/04/2025' } },
+    { banque:'CIH Bank',        solde:30000, taux:3.0, rappel:{ montant:500,  freq:'Mensuel',     prochaine:'01/01/2027' } },
+    { banque:'Banque Populaire', solde:15000, taux:2.5, rappel:{ montant:1000, freq:'Trimestriel', prochaine:'01/04/2027' } },
   ],
   pea: [
-    { ticker:'ATW', nom:'Attijariwafa Bank',    pru:124.50, cours:128.20, qty:80  },
-    { ticker:'BCP', nom:'Banque Centrale Pop.', pru:290.00, cours:312.50, qty:100 },
-    { ticker:'ATL', nom:'Attijari Leasing',     pru:156.00, cours:162.40, qty:60  },
-    { ticker:'IAM', nom:'Maroc Telecom',        pru:140.00, cours:136.80, qty:60  },
-    { ticker:'CIH', nom:'CIH Bank',            pru:320.00, cours:345.00, qty:45  },
+    { ticker:'ATW', nom:'Attijariwafa Bank',    pru:124.50, cours:714.80, qty:80  },
+    { ticker:'BCP', nom:'Banque Centrale Pop.', pru:290.00, cours:264.00, qty:100 },
+    { ticker:'ATL', nom:'Attijari Leasing',     pru:156.00, cours:127.00, qty:60  },
+    { ticker:'IAM', nom:'Maroc Telecom',        pru:140.00, cours:92.98,  qty:60  },
+    { ticker:'CIH', nom:'CIH Bank',            pru:320.00, cours:347.00, qty:45  },
   ],
   ct: {
     actions: [
@@ -78,6 +86,6 @@ export const INIT = {
     { id:1, nom:'Lingot 250g', quantite:250, unite:'g', prixAchat:185000, prixOffert:null },
     { id:2, nom:'Pieces 21K',  quantite:125, unite:'g', prixAchat:90000,  prixOffert:null },
   ],
-  prixOr:     905,
-  lastUpdate: '20/03/2025 09:30',
+  prixOr:     1285,
+  lastUpdate: '',
 };

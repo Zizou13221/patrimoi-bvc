@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PatriMoi — Scraper BVC
-Source 1 : yfinance (symboles .CS) — gère le crumb Yahoo automatiquement
+Source 1 : TradingView scanner (endpoint JSON non-auth, tous les tickers BVC)
 Source 2 : lematin.ma (serveur-rendu)
 Source 3 : medias24.com (par ISIN)
 Fallback  : données précédentes (stale)
@@ -19,32 +19,117 @@ import time
 
 import requests
 from bs4 import BeautifulSoup
-import yfinance as yf
 
-# ── Mapping ticker PatriMoi → symbole Yahoo Finance (.CS = Casablanca) ─────────
-# Format Yahoo : TICKER.CS  (ex: IAM.CS, ATW.CS)
-# Quelques tickers ont un nom différent sur Yahoo vs PatriMoi
-YAHOO_SYMBOLS = {
-    "ATW":  "ATW.CS",
-    "BCP":  "BCP.CS",
-    "CIH":  "CIH.CS",
-    "BOA":  "BOA.CS",
-    "CDM":  "CDM.CS",
-    "BMCI": "BMCI.CS",
-    "IAM":  "IAM.CS",
-    "ATL":  "ATL.CS",
-    "WAA":  "WAA.CS",
-    "ADH":  "ADH.CS",
-    "RDS":  "RDS.CS",
-    "AFG":  "AFG.CS",
-    "LHM":  "LHM.CS",
-    "HPS":  "HPS.CS",
-    "MNG":  "MNG.CS",
-    "TMA":  "TMA.CS",
-    "LBV":  "LBV.CS",
-    "MUT":  "MUT.CS",
-    "GTM":  "GTM.CS",
-    "MSA":  "MSA.CS",
+# ── Liste complète des 80 valeurs cotées à la BVC (codes officiels) ──────────
+# Source : african-markets.com/fr/bourse/bvc + TradingView scanner morocco
+# Format : CODE_BVC = "Nom complet"
+#
+# Banques & Finance
+# ATW  = Attijariwafa Bank       BCP  = Banque Centrale Populaire
+# CIH  = CIH Bank                BOA  = Bank of Africa (BMCE)
+# BCI  = BMCI Bank               CDM  = Crédit du Maroc
+# CFG  = CFG Bank                EQD  = Eqdom
+# MAB  = Maghrebail              MLE  = Maroc Leasing
+# SLF  = Salafin                 SAHM = Sanlam Maroc
+# DIS  = Diac Salaf              BAL  = Balima
+# WAA  = Wafa Assurance          IMO  = Immorente Invest
+# ARD  = Aradei Capital          AFM  = AFMA
+# AGM  = AGMA                    ADI  = Alliances
+# Immobilier
+# ADH  = Douja Prom Addoha       RDS  = Résidences Dar Saada
+# RIS  = Risma
+# Télécoms & Tech
+# IAM  = Maroc Telecom           HPS  = HPS
+# M2M  = M2M Group               IBMC = IB Maroc.Com
+# INV  = Involys                 MIC  = Microdata
+# S2M  = S.M Monétique           DWAY = Disway
+# DYT  = Disty Technologies      VCN  = Vicenne
+# CAP  = Cash Plus
+# Industrie & BTP
+# TGC  = TGCC                    JET  = Jet Contractors
+# ALM  = Aluminium du Maroc      DHO  = Delta Holding
+# DLM  = Delattre Levivier Maroc SNA  = Stokvis Nord Afrique
+# STR  = Stroc Industrie         SRM  = Réalisations Mécaniques
+# AFI  = Afric Industries        GTM  = GTM (BTP)
+# Mines & Matières premières
+# MNG  = Managem                 SMI  = Société Métallurgique d'Imiter
+# CMT  = Compagnie Minière de Touissit
+# SNP  = SNEP                    SID  = Sonasid
+# MOX  = Maghreb Oxygene         ZDJ  = Zellidja
+# REB  = Rebab Company           COL  = Colorado
+# Ciment & Construction
+# LHM  = LafargeHolcim Maroc     CMA  = Ciments du Maroc
+# HOL  = Holcim Maroc
+# Pétrole & Gaz
+# GAZ  = Afriquia Gaz            TMA  = TotalEnergies Maroc
+# SAM  = Samir                   TQM  = Taqa Morocco
+# Distribution & Consommation
+# LBV  = Label Vie               MUT  = Mutandis
+# CSR  = Cosumar                 LES  = Lesieur Cristal
+# OUL  = Oulmes                  UMR  = Unimer
+# SBM  = Société des Boissons du Maroc
+# CTM  = CTM                     ATH  = Auto Hall
+# NEJ  = Auto Nejma              DARI = Dari Couspate
+# CRS  = Cartier Saada           CMG  = CMGP Group
+# Santé
+# AKT  = Akdital                 PRO  = Promopharm
+# SOT  = Sothema
+# Transport & Ports
+# MSA  = Marsa Maroc
+# Agroalimentaire
+# MDP  = Med Paper
+# Autres
+# FBR  = Fenie Brossette         NAKL = Ennakl
+
+PATRIMOI_TICKERS = {
+    # Banques & Finance
+    "ATW", "BCP", "CIH", "BOA", "BCI", "CDM", "CFG", "EQD",
+    "MAB", "MLE", "SLF", "SAHM", "DIS", "BAL", "WAA", "IMO",
+    "ARD", "AFM", "AGM", "ADI",
+    # Assurances
+    "ATL",  # AtlantaSanad
+    # Immobilier
+    "ADH", "RDS", "RIS",
+    # Télécoms & Tech
+    "IAM", "HPS", "M2M", "IBMC", "INV", "MIC", "S2M", "DWAY",
+    "DYT", "VCN", "CAP",
+    # Industrie & BTP
+    "TGC", "JET", "ALM", "DHO", "DLM", "SNA", "STR", "SRM",
+    "AFI", "GTM",
+    # Mines & Matières premières
+    "MNG", "SMI", "CMT", "SNP", "SID", "MOX", "ZDJ", "REB", "COL",
+    # Ciment
+    "LHM", "CMA", "HOL",
+    # Pétrole & Gaz
+    "GAZ", "TMA", "SAM", "TQM",
+    # Distribution & Consommation
+    "LBV", "MUT", "CSR", "LES", "OUL", "UMR", "SBM",
+    "CTM", "ATH", "NEJ", "DARI", "CRS", "CMG",
+    # Santé
+    "AKT", "PRO", "SOT",
+    # Transport & Ports
+    "MSA",
+    # Autres
+    "MDP", "FBR", "NAKL",
+}
+
+# ── Alias TradingView → code BVC (TradingView tronque certains tickers) ───────
+TV_TO_PATRIMOI = {
+    "DRI":  "DARI",   # Dari Couspate   : TV=DRI  → BVC=DARI
+    "DWY":  "DWAY",   # Disway          : TV=DWY  → BVC=DWAY
+    "IBC":  "IBMC",   # IB Maroc.Com    : TV=IBC  → BVC=IBMC
+    "NKL":  "NAKL",   # Ennakl          : TV=NKL  → BVC=NAKL
+    "SAH":  "SAHM",   # Sanlam Maroc    : TV=SAH  → BVC=SAHM
+    # DIS (Diac Salaf), DLM (Delattre Levivier), HOL (Holcim), SAM (Samir)
+    # ne semblent pas listés sur TradingView (valeurs suspendues / peu liquides)
+}
+
+# ── Alias de compatibilité (anciens codes app → codes BVC officiels) ──────────
+# Certains tickers dans l'app utilisent des codes non-BVC hérités
+# On duplique la valeur dans le JSON pour les deux codes
+PATRIMOI_ALIASES = {
+    "AFG":  "GAZ",   # Afriquia Gaz : app=AFG → BVC=GAZ
+    "BMCI": "BCI",   # BMCI Bank    : app=BMCI → BVC=BCI
 }
 
 # ── Source 2 : medias24.com (fallback ISIN) ───────────────────────────────────
@@ -100,58 +185,75 @@ SLUG_TO_TICKER = {
 }
 
 
-# ── Source 1 : yfinance (gère le crumb Yahoo automatiquement) ─────────────────
+# ── Source 1 : TradingView scanner ────────────────────────────────────────────
 
-def scrape_yahoo() -> dict:
-    """
-    Récupère les cours via la lib yfinance (gère crumb/cookie automatiquement).
-    Retourne { TICKER: { cours, variation } }
-    """
-    yahoo_to_patrimoi = {v: k for k, v in YAHOO_SYMBOLS.items()}
-    symbols = list(YAHOO_SYMBOLS.values())
+TV_SCANNER_URL = "https://scanner.tradingview.com/morocco/scan"
 
-    # Télécharge les données du dernier jour pour tous les symboles en une fois
-    raw = yf.download(
-        tickers=symbols,
-        period="2d",
-        interval="1d",
-        auto_adjust=True,
-        progress=False,
-        group_by="ticker",
-    )
+TV_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Content-Type":  "application/json",
+    "Origin":        "https://www.tradingview.com",
+    "Referer":       "https://www.tradingview.com/",
+    "Accept":        "application/json",
+}
+
+TV_PAYLOAD = {
+    "columns": ["name", "close", "change"],   # name=ticker, close=cours, change=variation%
+    "range":   [0, 150],                       # max 150 titres BVC
+    "sort":    {"sortBy": "name", "sortOrder": "asc"},
+}
+
+
+def scrape_tradingview() -> dict:
+    """
+    POST https://scanner.tradingview.com/morocco/scan
+    Retourne { TICKER: { cours, variation } } pour tous les tickers PatriMoi trouvés.
+    """
+    resp = requests.post(TV_SCANNER_URL, json=TV_PAYLOAD, headers=TV_HEADERS, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+
+    rows = data.get("data", [])
+    if not rows:
+        # Debug : afficher la réponse brute pour diagnostiquer
+        print(f"   DEBUG réponse TV : {json.dumps(data)[:300]}", file=sys.stderr)
+        raise ValueError("TradingView scanner : réponse vide")
 
     cours = {}
+    unmatched = []
+    for row in rows:
+        # row["s"] = "XCAS:ATW"  ou  "CSE:IAM"  etc.
+        # row["d"] = [name, close, change]
+        symbol_full = row.get("s", "")
+        values      = row.get("d", [])
+        if len(values) < 3:
+            continue
+        ticker = symbol_full.split(":")[-1].upper()
+        # Appliquer les alias éventuels
+        ticker_mapped = TV_TO_PATRIMOI.get(ticker, ticker)
+        if ticker_mapped not in PATRIMOI_TICKERS:
+            unmatched.append(ticker)
+            continue
+        price     = values[1]
+        variation = values[2] or 0.0
+        if price and float(price) > 0:
+            cours[ticker_mapped] = {
+                "cours":     round(float(price), 2),
+                "variation": round(float(variation), 2),
+            }
+            print(f"   tv ✓ {ticker_mapped} = {price:.2f} MAD  ({variation:+.2f}%)")
 
-    for yahoo_sym in symbols:
-        patrimoi_ticker = yahoo_to_patrimoi[yahoo_sym]
-        try:
-            if len(symbols) == 1:
-                close_series = raw["Close"]
-            else:
-                close_series = raw[yahoo_sym]["Close"]
-
-            close_series = close_series.dropna()
-            if close_series.empty:
-                continue
-
-            price = float(close_series.iloc[-1])
-            # Variation vs avant-veille si dispo
-            if len(close_series) >= 2:
-                prev  = float(close_series.iloc[-2])
-                variation = round((price - prev) / prev * 100, 2) if prev else 0.0
-            else:
-                variation = 0.0
-
-            if price > 0:
-                cours[patrimoi_ticker] = {
-                    "cours":     round(price, 2),
-                    "variation": variation,
-                }
-        except Exception as e:
-            print(f"   yfinance ✗ {patrimoi_ticker} ({yahoo_sym}): {e}", file=sys.stderr)
+    manquants = PATRIMOI_TICKERS - set(cours.keys())
+    if manquants:
+        print(f"   ⚠ Tickers PatriMoi non trouvés sur TV : {sorted(manquants)}", file=sys.stderr)
+        print(f"   ℹ Symboles TV non reconnus (extrait) : {sorted(unmatched)[:30]}", file=sys.stderr)
 
     if not cours:
-        raise ValueError("yfinance : aucun cours récupéré")
+        raise ValueError("TradingView scanner : aucun ticker PatriMoi trouvé")
 
     return cours
 
@@ -259,20 +361,17 @@ def run(output_path: str = "bvc_cours.json") -> bool:
     cours            = {}
     source_utilisee  = "aucune"
 
-    # 1. Yahoo Finance
-    print("→ Tentative Yahoo Finance …")
+    # 1. TradingView scanner
+    print("→ Tentative TradingView scanner …")
     try:
-        cours = scrape_yahoo()
+        cours = scrape_tradingview()
         if cours:
-            source_utilisee = "yahoo-finance"
-            print(f"✓ Yahoo Finance : {len(cours)} tickers")
-            for t, d in sorted(cours.items()):
-                signe = "+" if d["variation"] >= 0 else ""
-                print(f"   {t:6s} {d['cours']:>10.2f} MAD  {signe}{d['variation']:.2f}%")
+            source_utilisee = "tradingview"
+            print(f"✓ TradingView : {len(cours)} tickers")
         else:
-            print("✗ Yahoo Finance : aucun résultat")
+            print("✗ TradingView : aucun résultat")
     except Exception as e:
-        print(f"✗ Yahoo Finance : {e}")
+        print(f"✗ TradingView : {e}")
 
     # 2. lematin.ma
     if not cours:
@@ -293,11 +392,19 @@ def run(output_path: str = "bvc_cours.json") -> bool:
             source_utilisee = "medias24.com"
             print(f"✓ medias24.com : {len(cours)} tickers")
 
-    # Fallback stale
+    # Fallback stale — si un fichier frais existe déjà, on NE l'écrase PAS
     if not cours:
-        print("⚠ Fallback stale")
+        if cours_precedents:
+            print("⚠ Toutes les sources ont échoué — fichier existant conservé (aucune écriture)")
+            return True
+        print("⚠ Fallback stale (aucun fichier précédent)")
         cours           = {k: {**v, "stale": True} for k, v in cours_precedents.items()}
         source_utilisee = "stale"
+
+    # Aliases de compatibilité (ex : GAZ → aussi AFG pour anciens utilisateurs)
+    for alias, real in PATRIMOI_ALIASES.items():
+        if real in cours and alias not in cours:
+            cours[alias] = cours[real]
 
     succes = len([v for v in cours.values() if not v.get("stale")])
     echecs = len(cours) - succes

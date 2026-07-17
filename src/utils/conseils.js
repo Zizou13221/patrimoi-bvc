@@ -78,8 +78,69 @@ export function generateConseils(data) {
     conseils.push({
       id: 'carnet', priority: 3, couleur: C.teal, icon: '✦',
       titre: 'Ouvrez un Compte sur Carnet',
-      corps: `Le Compte sur Carnet offre 2,5 à 3% par an, garanti et sans risque. Idéal pour votre épargne de précaution.`,
+      corps: `Le Compte sur Carnet offre 2,75% par an (taux BAM 2025), garanti et sans risque. Idéal pour votre épargne de précaution (3 à 6 mois de dépenses).`,
       action: 'Voir les carnets', nav: 'actifs', sub: 'carnet',
+    });
+  }
+
+  // ── PEA : exemption fiscale 5 ans (titres avec dateAchat renseignée) ──
+  const detentionMoisFn = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return null;
+    const dt = new Date(+parts[2], +parts[1] - 1, +parts[0]);
+    if (isNaN(dt.getTime())) return null;
+    return Math.floor((Date.now() - dt) / (1000 * 60 * 60 * 24 * 30.44));
+  };
+  const peaTitresAvecDate = (data.pea || []).filter(t => t.dateAchat);
+  const peaPresque5ans = peaTitresAvecDate.filter(t => {
+    const m = detentionMoisFn(t.dateAchat);
+    return m !== null && m >= 48 && m < 60;
+  });
+  const peaDejaExo = peaTitresAvecDate.filter(t => {
+    const m = detentionMoisFn(t.dateAchat);
+    return m !== null && m >= 60;
+  });
+  if (peaPresque5ans.length > 0) {
+    const tickers = peaPresque5ans.map(t => t.ticker).join(', ');
+    const resteMois = 60 - (detentionMoisFn(peaPresque5ans[0].dateAchat) ?? 60);
+    conseils.push({
+      id: 'pea_exo', priority: 1, couleur: C.pri, icon: '⏱',
+      titre: `PEA : exonération fiscale dans ~${resteMois} mois`,
+      corps: `${tickers} atteindront les 5 ans d'exonération dans environ ${resteMois} mois. Ne vendez pas avant ! Après cette date, vos plus-values seront 100% exonérées d'impôt.`,
+      action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
+    });
+  }
+  if (peaDejaExo.length > 0) {
+    const tickers = peaDejaExo.map(t => t.ticker).join(', ');
+    conseils.push({
+      id: 'pea_exo_ok', priority: 3, couleur: C.gpos, icon: '✓',
+      titre: `PEA : ${peaDejaExo.length} titre(s) exonérés d'impôt`,
+      corps: `${tickers} — plus de 5 ans de détention. Vos plus-values sur ces titres sont exonérées d'IR au Maroc. Excellente stratégie patrimoniale !`,
+      action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
+    });
+  }
+
+  // ── PEA en forte plus-value (> 25%) → diversifier ──
+  if (peaCout > 0 && peaVal > 0) {
+    const peaPerf = pctDiff(peaVal, peaCout);
+    if (peaPerf > 25) {
+      conseils.push({
+        id: 'pea_perf', priority: 3, couleur: C.gpos, icon: '↑',
+        titre: `PEA en forte plus-value (+${peaPerf.toFixed(1)}%)`,
+        corps: `Votre PEA affiche +${peaPerf.toFixed(1)}% de performance. Pensez à prendre partiellement vos bénéfices si votre PEA dépasse 5 ans, ou à rééquilibrer pour réduire la concentration sur un seul titre.`,
+        action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
+      });
+    }
+  }
+
+  // ── Or à bon niveau (5-10%) → renforcement positif ──
+  if (orRatio >= 0.05 && orRatio <= 0.10) {
+    conseils.push({
+      id: 'or_ok', priority: 3, couleur: C.gold, icon: '◈',
+      titre: `Or bien pondéré (${Math.round(orRatio * 100)}% du patrimoine)`,
+      corps: `Votre allocation or est optimale (5-10%). Avec un cours actuel de ${data.prixOr ? fmt(data.prixOr) + '/g' : 'N/A'}, votre or joue pleinement son rôle de valeur refuge contre l'inflation du dirham.`,
+      action: null, nav: null, sub: null,
     });
   }
 

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "jsx": "react-native",
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "PatriMoi_Native.jsx", "__tests__/**/*"],
+  "exclude": ["node_modules", "ios", "android"]
+}

@@ -1,0 +1,7 @@
+# PatriMoi — Supabase config (Phase 1 DAT v2.0 — Sécurité)
+
+[functions.market-data-proxy]
+verify_jwt = true   # JWT obligatoire — validé côté Edge Function
+
+[functions.market-data-proxy-ingest]
+verify_jwt = false  # Appelé par pg_cron (service_role) — pas de JWT client

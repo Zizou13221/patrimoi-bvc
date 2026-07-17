@@ -1,15 +1,20 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { C } from '../constants/colors';
 import { PROVERBES } from '../constants/data';
-import { totalPatrimoine, calcPEA, calcCT, calcBanque, calcCarnet, calcLiquide, calcImmo, calcOr } from '../utils/calc';
+import { totalPatrimoine, calcPEA, calcCT, calcBanque, calcCarnet, calcLiquide, calcImmo, calcOr, calcTransport } from '../utils/calc';
 import { fmt } from '../utils/fmt';
 import { Card, SectionTitle } from '../components/shared';
+import { usePatrimoineStore } from '../store/patrimoineStore';
 
-const PageProverbe = React.memo(function PageProverbe({ onNav, data }) {
+const PageProverbe = React.memo(function PageProverbe({ onNav }) {
+  const data    = usePatrimoineStore(s => s.data);
+  const user    = usePatrimoineStore(s => s.user);
+  const discret = usePatrimoineStore(s => s.discret);
   const today     = new Date();
-  const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
+  const dayOfYear = Math.max(1, Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000));
   const prv       = PROVERBES[dayOfYear % PROVERBES.length];
+  const prenom    = user?.user_metadata?.prenom || user?.email?.split('@')[0] || null;
   const initials  = prv.a.split(' ').map(w => w[0]).slice(0, 2).join('');
   const total     = useMemo(() => totalPatrimoine(data), [data]);
 
@@ -19,41 +24,43 @@ const PageProverbe = React.memo(function PageProverbe({ onNav, data }) {
       <View style={{ backgroundColor:C.pri, padding:16 }}>
         <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start' }}>
           <View>
-            <Text style={{ color:C.white, fontWeight:'700', fontSize:16 }}>Bonjour, Mohammed !</Text>
+            <Text style={{ color:C.white, fontWeight:'700', fontSize:16 }}>Bonjour{prenom ? ', ' + prenom : ''} !</Text>
             <Text style={{ color:'rgba(255,255,255,0.75)', fontSize:11, marginTop:3 }}>
               {today.toLocaleDateString('fr-FR',{ weekday:'long', day:'numeric', month:'long', year:'numeric' })}
             </Text>
           </View>
           <View style={{ backgroundColor:'rgba(255,255,255,0.15)', borderRadius:8, paddingHorizontal:10, paddingVertical:5, alignItems:'flex-end' }}>
             <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:10 }}>Patrimoine total</Text>
-            <Text style={{ color:C.white, fontWeight:'700', fontSize:15 }}>{fmt(total)}</Text>
+            <Text style={{ color:C.white, fontWeight:'700', fontSize:15 }}>{discret ? '•••• DH' : fmt(total)}</Text>
           </View>
         </View>
         <TouchableOpacity
-          onPress={() => onNav('actifs')}
-          style={{ marginTop:12, backgroundColor:'rgba(255,255,255,0.12)', borderRadius:10, padding:10, flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}
+          onPress={() => onNav('dashboard')}
+          style={{ marginTop:12, backgroundColor:'rgba(255,255,255,0.12)', borderRadius:10, padding:10 }}
           activeOpacity={0.8}
         >
-          <View style={{ flexDirection:'row', gap:6, alignItems:'center' }}>
+          <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
             {[
-              { label:'Financier', val: calcPEA(data.pea) + calcCT(data.ct) + calcBanque(data.banque) + calcCarnet(data.carnet) + calcLiquide(data.liquidites), col:'#6EE7A0' },
-              { label:'Immo',      val: calcImmo(data.immobilier),   col:C.acc },
-              { label:'Or',        val: calcOr(data.or, data.prixOr), col:'#FFD700' },
+              { label:'Financier', val: calcPEA(data.pea) + calcCT(data.ct), col:'#6EE7A0' },
+              { label:'Liquidité', val: calcLiquide(data.liquidites) + calcBanque(data.banque) + calcCarnet(data.carnet), col:'#60AFFF' },
+              { label:'Immo',      val: calcImmo(data.immobilier),            col:C.acc },
+              { label:'Or & MP',   val: calcOr(data.or, data.prixOr),        col:'#FFD700' },
+              { label:'Transport', val: calcTransport(data.transport),        col:'#A0A0C8' },
             ].map((cat, i) => (
-              <View key={i} style={{ alignItems:'center' }}>
+              <View key={i} style={{ alignItems:'center', flex:1 }}>
                 <Text style={{ color:cat.col, fontWeight:'700', fontSize:12 }}>{total > 0 ? Math.round(cat.val / total * 100) : 0}%</Text>
-                <Text style={{ color:'rgba(255,255,255,0.6)', fontSize:9 }}>{cat.label}</Text>
+                <Text style={{ color:'rgba(255,255,255,0.6)', fontSize:7 }} numberOfLines={1}>{cat.label}</Text>
               </View>
             ))}
           </View>
-          <Text style={{ color:'rgba(255,255,255,0.8)', fontSize:12 }}>Voir mes actifs →</Text>
+          <Text style={{ color:'rgba(255,255,255,0.75)', fontSize:11, textAlign:'right' }}>Mon patrimoine →</Text>
         </TouchableOpacity>
       </View>
 
       {/* Proverbe */}
       <View style={{ backgroundColor:C.priD, margin:12, borderRadius:16, padding:16 }}>
         <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:11, fontWeight:'600', marginBottom:6 }}>
-          Proverbe du Jour - {dayOfYear}/366
+          Proverbe du Jour - {dayOfYear}/{PROVERBES.length}
         </Text>
         <Text style={{ color:C.white, fontSize:15, fontWeight:'700', lineHeight:22, marginBottom:12 }}>
           {'"'}{prv.q}{'"'}
@@ -105,6 +112,7 @@ const PageProverbe = React.memo(function PageProverbe({ onNav, data }) {
         ))}
 
         <TouchableOpacity
+          onPress={() => Linking.openURL('https://apps.apple.com/app/patrimoi').catch(() => Alert.alert('Bientot disponible', 'Retrouvez PatriMoi sur l\'App Store.'))}
           style={{ paddingVertical:11, borderRadius:10, borderWidth:1.5, borderColor:C.pri, backgroundColor:C.priL, alignItems:'center', marginTop:4 }}
           activeOpacity={0.8}
         >

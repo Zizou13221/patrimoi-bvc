@@ -137,15 +137,17 @@ export const MethodSelector = ({ value, onChange }) => (
   </View>
 );
 
-export const Input = ({ label, value, onChangeText, placeholder, keyboardType, unit }) => (
-  <View style={{ marginBottom:12 }}>
+export const Input = ({ label, value, onChangeText, placeholder, keyboardType, unit, editable = true, style }) => (
+  <View style={[{ marginBottom:12 }, style]}>
     {label ? <Text style={{ fontSize:12, fontWeight:'600', color:C.dark, marginBottom:4 }}>{label}</Text> : null}
-    <View style={{ flexDirection:'row', alignItems:'center', backgroundColor:C.g1, borderRadius:8, paddingHorizontal:12, borderWidth:1, borderColor:C.g2 }}>
+    <View style={{ flexDirection:'row', alignItems:'center', backgroundColor: editable ? C.g1 : C.white, borderRadius:8, paddingHorizontal:12, borderWidth:1, borderColor: editable ? C.g2 : C.g2 }}>
       <TextInput
-        value={value} onChangeText={onChangeText} placeholder={placeholder}
+        value={value} onChangeText={editable ? onChangeText : undefined} placeholder={placeholder}
         placeholderTextColor={C.g3} keyboardType={keyboardType || 'default'}
-        style={{ flex:1, paddingVertical:10, fontSize:13, color:C.dark }}
+        editable={editable}
+        style={{ flex:1, paddingVertical:10, fontSize:13, color: editable ? C.dark : C.g3, fontWeight: editable ? '400' : '600' }}
       />
+      {!editable && <Text style={{ color:C.g3, fontSize:11 }}>🔒</Text>}
       {unit ? <Text style={{ color:C.g3, fontSize:12 }}>{unit}</Text> : null}
     </View>
   </View>
@@ -229,6 +231,109 @@ export const Sparkline = ({ data, color }) => {
   );
 };
 
+export const SparklineInteractive = ({ data, color, dates }) => {
+  const [sel, setSel] = useState(null);
+  if (!data || data.length < 2) return null;
+
+  const W    = 280;
+  const H    = 54;
+  const PADX = 4;
+  const PADY = 7;
+  const col  = color || C.acc;
+
+  const min   = Math.min(...data);
+  const max   = Math.max(...data);
+  const range = max - min || 1;
+
+  // Coordonnées de chaque point (espace absolu dans le conteneur W×H)
+  const pts = data.map((v, i) => ({
+    x: PADX + (i / (data.length - 1)) * (W - 2 * PADX),
+    y: H - PADY - ((v - min) / range) * (H - 2 * PADY),
+  }));
+
+  // Segments : View rectangulaire tourné vers le point suivant
+  const segments = pts.slice(0, -1).map((p1, i) => {
+    const p2  = pts[i + 1];
+    const dx  = p2.x - p1.x;
+    const dy  = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    return { cx: (p1.x + p2.x) / 2, cy: (p1.y + p2.y) / 2, len, ang };
+  });
+
+  const tw    = Math.max(W / data.length, 20); // largeur zone tactile par point
+  const selPt = sel !== null ? pts[sel] : null;
+
+  return (
+    <View>
+      {/* Zone graphique */}
+      <View style={{ width: W, height: H }}>
+        {/* Segments de la courbe */}
+        {segments.map(({ cx, cy, len, ang }, i) => (
+          <View
+            key={i}
+            pointerEvents="none"
+            style={{
+              position:  'absolute',
+              width:     len,
+              height:    2,
+              backgroundColor: col,
+              opacity:   0.9,
+              left:      cx - len / 2,
+              top:       cy - 1,
+              transform: [{ rotate: `${ang}deg` }],
+            }}
+          />
+        ))}
+        {/* Point sélectionné */}
+        {selPt && (
+          <View
+            pointerEvents="none"
+            style={{
+              position:   'absolute',
+              width:  10, height: 10,
+              borderRadius: 5,
+              backgroundColor: col,
+              borderWidth: 2,
+              borderColor: '#fff',
+              left: selPt.x - 5,
+              top:  selPt.y - 5,
+              zIndex: 2,
+            }}
+          />
+        )}
+        {/* Zones tactiles (colonnes invisibles) */}
+        {pts.map((p, i) => (
+          <TouchableOpacity
+            key={i}
+            onPress={() => setSel(sel === i ? null : i)}
+            activeOpacity={1}
+            style={{
+              position: 'absolute',
+              width:  tw,
+              height: H,
+              left:   p.x - tw / 2,
+              top:    0,
+            }}
+          />
+        ))}
+      </View>
+      {/* Tooltip */}
+      <View style={{ height:22, justifyContent:'center', alignItems:'center', marginTop:2 }}>
+        {sel !== null && data[sel] !== undefined ? (
+          <View style={{ backgroundColor:'rgba(0,0,0,0.75)', borderRadius:6, paddingHorizontal:10, paddingVertical:3 }}>
+            <Text style={{ color:'#fff', fontSize:11, fontWeight:'600' }}>
+              {dates?.[sel] ? dates[sel] + '  ' : ''}{data[sel].toLocaleString('fr-FR', { maximumFractionDigits:0 })} DH
+            </Text>
+          </View>
+        ) : (
+          <Text style={{ color:'rgba(255,255,255,0.35)', fontSize:10 }}>Appuyez sur le graphique pour voir la valeur</Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
 export const BarH = ({ pct, color, height=5 }) => (
   <View style={{ height, backgroundColor:C.g1, borderRadius:height/2, overflow:'hidden' }}>
     <View style={{ width:`${Math.min(pct,100)}%`, height:'100%', backgroundColor:color, borderRadius:height/2 }}/>
@@ -244,7 +349,7 @@ export const DonutSimple = ({ cats, total }) => (
       })}
     </View>
     <View style={{ flexDirection:'row', flexWrap:'wrap', gap:8, marginTop:10 }}>
-      {cats.slice(0,6).map((c, i) => (
+      {cats.map((c, i) => (
         <View key={i} style={{ flexDirection:'row', alignItems:'center', gap:4 }}>
           <View style={{ width:9, height:9, borderRadius:2, backgroundColor:c.col }}/>
           <Text style={{ fontSize:9, color:C.dark }}>{c.abbr} {total>0?Math.round(c.val/total*100):0}%</Text>
@@ -255,7 +360,7 @@ export const DonutSimple = ({ cats, total }) => (
 );
 
 const NAV_ITEMS = [
-  { id:'proverbe',  label:'Accueil',  abbr:'PG1' },
+  { id:'proverbe',  label:'Accueil',  abbr:'ACC' },
   { id:'dashboard', label:'Dashboard',abbr:'DBD' },
   { id:'actifs',    label:'Actifs',   abbr:'ACT' },
   { id:'conseils',  label:'Conseils', abbr:'CNS' },

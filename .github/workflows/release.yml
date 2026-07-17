@@ -1,0 +1,46 @@
+name: Release — TestFlight
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'   # ex: v1.6.0, v2.0.0
+
+jobs:
+  testflight:
+    name: Build & Upload TestFlight
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Setup Ruby (Fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ hashFiles('ios/Podfile.lock') }}
+
+      - name: Pod install
+        run: cd ios && pod install
+
+      - name: Fastlane — beta (match + gym + pilot)
+        run: cd ios && bundle exec fastlane beta
+        env:
+          MATCH_PASSWORD:          ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL:           ${{ secrets.MATCH_GIT_URL }}
+          APP_STORE_CONNECT_KEY_ID:         ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID:      ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_CONTENT:    ${{ secrets.APP_STORE_CONNECT_KEY_CONTENT }}
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: '120'

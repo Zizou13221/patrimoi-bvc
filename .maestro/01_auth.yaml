@@ -1,0 +1,30 @@
+# PatriMoi — Flow E2E #1 : Authentification
+# Parcours : écran auth → connexion → dashboard
+appId: ma.patrimoi.app
+---
+- launchApp:
+    clearState: true
+
+# ── Écran d'authentification ─────────────────────────────────
+- assertVisible: "Connexion"
+
+- tapOn:
+    text: "Email"
+- inputText: "test-e2e@patrimoi.ma"
+
+- tapOn:
+    text: "Mot de passe"
+- inputText: "TestE2E2024!"
+
+- tapOn:
+    text: "Se connecter"
+
+# ── Dashboard chargé ─────────────────────────────────────────
+- waitForAnimationToEnd
+- assertVisible: "Patrimoine total"
+- assertVisible: "DH"
+
+# ── Navigation bas : 6 onglets visibles ─────────────────────
+- assertVisible: "Actifs"
+- assertVisible: "Conseils"
+- assertVisible: "Paramètres"

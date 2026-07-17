@@ -1,0 +1,25 @@
+# PatriMoi — Flow E2E #3 : Mode discret
+# Vérifie que les montants sont masqués (•••• DH) en mode discret
+appId: ma.patrimoi.app
+---
+- launchApp
+
+# ── Dashboard visible ─────────────────────────────────────────
+- waitForAnimationToEnd
+- assertVisible: "Patrimoine total"
+
+# ── Activer le mode discret ───────────────────────────────────
+- tapOn:
+    id: "btn-discret"   # accessibilityLabel sur le bouton œil
+
+# ── Les montants sont masqués ─────────────────────────────────
+- waitForAnimationToEnd
+- assertNotVisible: " DH"
+- assertVisible: "••••"
+
+# ── Désactiver le mode discret ────────────────────────────────
+- tapOn:
+    id: "btn-discret"
+- waitForAnimationToEnd
+- assertVisible: " DH"
+- assertNotVisible: "••••"

@@ -26,6 +26,12 @@ if ! xcode-select -p &>/dev/null 2>&1; then
 fi
 green "✓ Xcode : $(xcode-select -p)"
 
+# Forcer xcode-select sur l'app Xcode complète (pas les Command Line Tools seuls)
+if [ -d "/Applications/Xcode.app" ]; then
+  sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+  green "✓ xcode-select → Xcode.app"
+fi
+
 # Accepter la licence Xcode si besoin
 sudo xcodebuild -license accept 2>/dev/null || true
 
@@ -63,13 +69,15 @@ else
   cd "$HOME"
   npx @react-native-community/cli@latest init "$APP_NAME" \
     --version 0.75.4 \
-    --skip-install \
-    --yes
+    --skip-install
   green "✓ Projet React Native créé dans $APP_DIR"
 fi
 
 # ── 6. Copier les sources PatriMoi ───────────────────────
 yellow "→ Copie des sources PatriMoi..."
+# Supprimer les anciens fichiers et prendre les droits
+sudo rm -rf "$APP_DIR/src" "$APP_DIR/App.jsx" "$APP_DIR/bvc_cours.json"
+sudo chown -R "$(whoami)" "$APP_DIR"
 cp -r "$SCRIPT_DIR/src" "$APP_DIR/"
 cp "$SCRIPT_DIR/PatriMoi_Native.jsx" "$APP_DIR/App.jsx"
 [ -f "$SCRIPT_DIR/bvc_cours.json" ] && cp "$SCRIPT_DIR/bvc_cours.json" "$APP_DIR/bvc_cours.json"

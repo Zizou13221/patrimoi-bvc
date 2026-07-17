@@ -1,0 +1,4 @@
+app_identifier "ma.patrimoi.app"
+apple_id        ENV["APPLE_ID"] || "zineddine.othmane1@gmail.com"
+team_id         ENV["TEAM_ID"]
+itc_team_id     ENV["ITC_TEAM_ID"]

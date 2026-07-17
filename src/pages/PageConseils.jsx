@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { C } from '../constants/colors';
 import { generateConseils } from '../utils/conseils';
 import { calcOr, calcImmo, calcPEA, calcCT, calcCarnet, calcLiquide, calcBanque } from '../utils/calc';
 import { fmt } from '../utils/fmt';
 import { Card, IconBox, BarH, SectionTitle, TopBar } from '../components/shared';
+import { usePatrimoineStore } from '../store/patrimoineStore';
 
-const PageConseils = React.memo(function PageConseils({ data, onNav }) {
+const PageConseils = React.memo(function PageConseils({ onNav }) {
+  const data                = usePatrimoineStore(s => s.data);
   // generateConseils retourne { conseils, total } — un seul useMemo
   const { conseils, total } = useMemo(() => generateConseils(data), [data]);
 
@@ -29,20 +31,20 @@ const PageConseils = React.memo(function PageConseils({ data, onNav }) {
             {conseils.map((c) => (
               <Card key={c.id} style={{ borderLeftWidth:4, borderLeftColor:c.couleur, backgroundColor:priorityBg(c.priority), marginBottom:10 }}>
                 <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <View style={{ flexDirection:'row', alignItems:'center', gap:8 }}>
-                    <View style={{ width:28, height:28, borderRadius:14, backgroundColor:c.couleur, alignItems:'center', justifyContent:'center' }}>
+                  <View style={{ flexDirection:'row', alignItems:'center', gap:8, flex:1, marginRight:8 }}>
+                    <View style={{ width:28, height:28, borderRadius:14, backgroundColor:c.couleur, alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <Text style={{ color:C.white, fontWeight:'700', fontSize:12 }}>{c.icon}</Text>
                     </View>
-                    <Text style={{ fontWeight:'700', fontSize:13, color:C.dark, flex:1, flexShrink:1 }}>{c.titre}</Text>
+                    <Text style={{ fontWeight:'700', fontSize:13, color:C.dark, flex:1 }} numberOfLines={2}>{c.titre}</Text>
                   </View>
-                  <View style={{ backgroundColor:c.couleur+'22', borderRadius:6, paddingHorizontal:7, paddingVertical:2 }}>
-                    <Text style={{ fontSize:9, fontWeight:'700', color:c.couleur }}>{priorityLabel(c.priority)}</Text>
+                  <View style={{ backgroundColor:c.couleur+'22', borderRadius:6, paddingHorizontal:7, paddingVertical:2, flexShrink:0 }}>
+                    <Text style={{ fontSize:9, fontWeight:'700', color:c.couleur }} numberOfLines={1}>{priorityLabel(c.priority)}</Text>
                   </View>
                 </View>
                 <Text style={{ fontSize:12, color:C.dark, lineHeight:18, marginBottom:10 }}>{c.corps}</Text>
                 {c.action && (
                   <TouchableOpacity
-                    onPress={() => onNav(c.nav, c.sub)}
+                    onPress={() => { onNav(c.nav, c.sub); }}
                     style={{ backgroundColor:c.couleur, borderRadius:8, paddingVertical:8, alignItems:'center' }}
                     activeOpacity={0.8}
                   >
@@ -60,34 +62,84 @@ const PageConseils = React.memo(function PageConseils({ data, onNav }) {
         )}
 
         {/* Score de santé patrimoine */}
-        <Card style={{ marginBottom:14 }}>
-          <Text style={{ fontWeight:'700', fontSize:13, color:C.dark, marginBottom:10 }}>Score de santé de votre patrimoine</Text>
-          {[
-            { label:'Diversification',      pct:Math.min(100,(calcOr(data.or,data.prixOr)>0?25:0)+(calcImmo(data.immobilier)>0?25:0)+(calcPEA(data.pea)>0?25:0)+(calcCT(data.ct)>0?25:0)), col:C.pri },
-            { label:'Épargne réglementée',  pct:Math.min(100,calcCarnet(data.carnet)>0?80:10), col:C.teal },
-            { label:'Investissements BVC',  pct:Math.min(100,total>0?(calcPEA(data.pea)+calcCT(data.ct))/total*300:0), col:C.navy },
-            { label:'Liquidité optimale',   pct:Math.min(100,total>0?Math.max(0,100-Math.abs(((calcLiquide(data.liquidites)+calcBanque(data.banque))/total*100)-15)*4):0), col:C.gpos },
-          ].map((s, i) => (
-            <View key={i} style={{ marginBottom:8 }}>
-              <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:3 }}>
-                <Text style={{ fontSize:11, color:C.dark }}>{s.label}</Text>
-                <Text style={{ fontSize:11, fontWeight:'700', color:s.col }}>{Math.round(s.pct)}%</Text>
+        {(() => {
+          const orVal    = calcOr(data.or, data.prixOr);
+          const immoVal  = calcImmo(data.immobilier);
+          const peaVal   = calcPEA(data.pea);
+          const ctVal    = calcCT(data.ct);
+          const carnetV  = calcCarnet(data.carnet);
+          const liqV     = calcLiquide(data.liquidites) + calcBanque(data.banque);
+
+          // Diversification : 25 pts par classe présente, pondérée par le poids (max 100%)
+          const divScore = Math.min(100,
+            (orVal > 0    ? Math.min(25, 10 + (orVal/total)*150)    : 0) +
+            (immoVal > 0  ? Math.min(25, 10 + (immoVal/total)*50)   : 0) +
+            (peaVal > 0   ? Math.min(25, 10 + (peaVal/total)*150)   : 0) +
+            (ctVal > 0    ? Math.min(25, 10 + (ctVal/total)*150)    : 0)
+          );
+          // Épargne réglementée : cible 10% du patrimoine en carnet
+          const carnRatio  = total > 0 ? carnetV / total : 0;
+          const carnScore  = Math.min(100, carnRatio >= 0.10 ? 100 : (carnRatio / 0.10) * 100);
+          // Investissements BVC : cible 15% en PEA+CT
+          const bvcRatio   = total > 0 ? (peaVal + ctVal) / total : 0;
+          const bvcScore   = Math.min(100, bvcRatio >= 0.15 ? 100 : (bvcRatio / 0.15) * 100);
+          // Liquidité optimale : cible 10-20%, pénalité symétrique
+          const liqRatio   = total > 0 ? liqV / total : 0;
+          const liqTarget  = 0.15;
+          const liqScore   = Math.min(100, Math.max(0, 100 - Math.abs(liqRatio - liqTarget) / liqTarget * 100));
+
+          const scores = [
+            { label:'Diversification',     pct: divScore,  col: C.pri,  hint: `${[orVal>0?'Or':null,immoVal>0?'Immo':null,peaVal>0?'PEA':null,ctVal>0?'CT':null].filter(Boolean).join(', ')||'Aucune classe'}` },
+            { label:'Épargne réglementée', pct: carnScore, col: C.teal, hint: `${(carnRatio*100).toFixed(1)}% / objectif 10%` },
+            { label:'Investissements BVC', pct: bvcScore,  col: C.navy, hint: `${(bvcRatio*100).toFixed(1)}% / objectif 15%` },
+            { label:'Liquidité optimale',  pct: liqScore,  col: C.gpos, hint: `${(liqRatio*100).toFixed(1)}% / cible 10-20%` },
+          ];
+          const globalScore = Math.round(scores.reduce((s, x) => s + x.pct, 0) / scores.length);
+          const scoreColor  = globalScore >= 75 ? C.gpos : globalScore >= 50 ? C.gold : C.rneg;
+          const scoreLabel  = globalScore >= 75 ? 'Excellent' : globalScore >= 50 ? 'Passable' : 'À améliorer';
+
+          return (
+            <Card style={{ marginBottom:14 }}>
+              <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <Text style={{ fontWeight:'700', fontSize:13, color:C.dark }}>Score de santé patrimoniale</Text>
+                <View style={{ backgroundColor: scoreColor + '22', borderRadius:10, paddingHorizontal:10, paddingVertical:4, alignItems:'center' }}>
+                  <Text style={{ fontWeight:'800', fontSize:18, color:scoreColor }}>{globalScore}</Text>
+                  <Text style={{ fontSize:9, fontWeight:'600', color:scoreColor }}>{scoreLabel}</Text>
+                </View>
               </View>
-              <BarH pct={s.pct} color={s.col} height={6}/>
-            </View>
-          ))}
-        </Card>
+              {scores.map((s, i) => (
+                <View key={i} style={{ marginBottom:8 }}>
+                  <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:2 }}>
+                    <Text style={{ fontSize:11, color:C.dark }}>{s.label}</Text>
+                    <Text style={{ fontSize:10, color:C.g3 }}>{s.hint}</Text>
+                  </View>
+                  <BarH pct={s.pct} color={s.col} height={6}/>
+                </View>
+              ))}
+            </Card>
+          );
+        })()}
 
         {/* Guides thématiques */}
         <SectionTitle>Guides thématiques</SectionTitle>
-        <View style={{ flexDirection:'row', flexWrap:'wrap', gap:10, marginBottom:14 }}>
+        <View style={{ flexDirection:'row', gap:10, marginBottom:6 }}>
           {[
-            { abbr:'BVC', col:C.pri,    title:'Investir à la BVC',      sub:'Débutant à Confirmé' },
-            { abbr:'IMM', col:'#B46428',title:'Fiscalité immobilière',   sub:'Calculer vos plus-values' },
-            { abbr:'OPC', col:C.teal,   title:'Comprendre les OPCVM',   sub:'Fonds, VL, rendements' },
-            { abbr:'EPN', col:C.acc,    title:'Optimiser votre épargne', sub:'PEA, Carnet, intérêts' },
+            { abbr:'BVC', col:C.pri,    title:'Investir à la BVC',      sub:'Débutant à Confirmé',    url:'https://www.casablanca-bourse.com' },
+            { abbr:'IMM', col:'#B46428',title:'Fiscalité immobilière',   sub:'Calculer vos plus-values', url:'https://www.mubawab.ma' },
           ].map((g, i) => (
-            <Card key={i} style={{ width:'47%', margin:0 }}>
+            <Card key={i} style={{ flex:1, marginBottom:0 }} onPress={() => Alert.alert('Ouvrir le lien', `Vous allez quitter PatriMoi pour aller sur ${g.url}`, [{ text:'Annuler', style:'cancel' }, { text:'Ouvrir', onPress:() => Linking.openURL(g.url).catch(() => Alert.alert('Erreur','Impossible d\'ouvrir le lien.')) }])}>
+              <IconBox label={g.abbr} bg={g.col} size={32} fs={9}/>
+              <Text style={{ fontWeight:'700', fontSize:12, marginTop:8 }}>{g.title}</Text>
+              <Text style={{ fontSize:10, color:C.g3 }}>{g.sub}</Text>
+            </Card>
+          ))}
+        </View>
+        <View style={{ flexDirection:'row', gap:10, marginBottom:14 }}>
+          {[
+            { abbr:'OPC', col:C.teal,   title:'Comprendre les OPCVM',   sub:'Fonds, VL, rendements',  url:'https://www.opcvm.ma' },
+            { abbr:'EPN', col:C.acc,    title:'Optimiser votre épargne', sub:'PEA, Carnet, intérêts',  url:'https://www.bkam.ma' },
+          ].map((g, i) => (
+            <Card key={i} style={{ flex:1, marginBottom:0 }} onPress={() => Alert.alert('Ouvrir le lien', `Vous allez quitter PatriMoi pour aller sur ${g.url}`, [{ text:'Annuler', style:'cancel' }, { text:'Ouvrir', onPress:() => Linking.openURL(g.url).catch(() => Alert.alert('Erreur','Impossible d\'ouvrir le lien.')) }])}>
               <IconBox label={g.abbr} bg={g.col} size={32} fs={9}/>
               <Text style={{ fontWeight:'700', fontSize:12, marginTop:8 }}>{g.title}</Text>
               <Text style={{ fontSize:10, color:C.g3 }}>{g.sub}</Text>
@@ -98,13 +150,14 @@ const PageConseils = React.memo(function PageConseils({ data, onNav }) {
         {/* Sources officielles */}
         <SectionTitle>Sources officielles</SectionTitle>
         {[
-          { abbr:'BVC', col:C.pri,  url:'casablanca-bourse.com', desc:'Cours officiels BVC' },
-          { abbr:'AMC', col:C.sec,  url:'ammc.ma',               desc:'Régulateur des marchés' },
-          { abbr:'BAM', col:C.navy, url:'bkam.ma',               desc:'Bank Al-Maghrib' },
-          { abbr:'IMB', col:C.teal, url:'mubawab.ma',            desc:'Prix immobilier Maroc' },
-          { abbr:'OPC', col:C.priD, url:'opcvm.ma',              desc:'Valeurs liquidatives OPCVM' },
+          { abbr:'BVC', col:C.pri,     url:'casablanca-bourse.com', href:'https://www.casablanca-bourse.com', desc:'Cours officiels BVC' },
+          { abbr:'AMC', col:C.sec,     url:'ammc.ma',               href:'https://www.ammc.ma',              desc:'Régulateur des marchés' },
+          { abbr:'BAM', col:C.navy,    url:'bkam.ma',               href:'https://www.bkam.ma',              desc:'Bank Al-Maghrib' },
+          { abbr:'IMB', col:C.teal,    url:'mubawab.ma',            href:'https://www.mubawab.ma',           desc:'Prix immobilier Maroc' },
+          { abbr:'OPC', col:C.priD,    url:'opcvm.ma',              href:'https://www.opcvm.ma',             desc:'Valeurs liquidatives OPCVM' },
+          { abbr:'YAK', col:'#1A6B3C', url:'yakeey.ma',             href:'https://www.yakeey.ma',            desc:'Immobilier Maroc — Yakeey' },
         ].map((s, i) => (
-          <Card key={i} style={{ padding:10 }}>
+          <Card key={i} style={{ padding:10 }} onPress={() => Alert.alert('Ouvrir le lien', `Vous allez quitter PatriMoi pour ${s.url}`, [{ text:'Annuler', style:'cancel' }, { text:'Ouvrir', onPress:() => Linking.openURL(s.href).catch(() => Alert.alert('Erreur','Impossible d\'ouvrir le lien.')) }])}>
             <View style={{ flexDirection:'row', gap:10, alignItems:'center' }}>
               <IconBox label={s.abbr} bg={s.col} size={34} fs={8}/>
               <View style={{ flex:1 }}>

@@ -1,0 +1,89 @@
+# PatriMoi — Fastfile (Phase 5 DAT v2.0)
+# Usage local : cd ios && bundle exec fastlane beta
+# Usage CI    : déclenché automatiquement sur tag v*.*.*
+
+default_platform :ios
+
+APP_ID      = "ma.patrimoi.app"
+SCHEME      = "PatriMoiApp"
+WORKSPACE   = "PatriMoiApp.xcworkspace"
+
+platform :ios do
+
+  # ── Synchroniser les certificats + profils via match ─────────────────────
+  desc "Sync certificates (App Store distribution)"
+  lane :certs do
+    match(
+      type:          "appstore",
+      app_identifier: APP_ID,
+      readonly:      is_ci,
+    )
+  end
+
+  # ── Build + upload TestFlight ─────────────────────────────────────────────
+  desc "Build et soumettre sur TestFlight"
+  lane :beta do
+    # 1. Sync certs
+    certs
+
+    # 2. Incrémenter le build number depuis App Store Connect
+    app_store_connect_api_key(
+      key_id:     ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id:  ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_KEY_CONTENT"],
+      in_house:   false,
+    )
+    increment_build_number(
+      build_number: latest_testflight_build_number + 1,
+      xcodeproj:   "#{SCHEME}.xcodeproj",
+    )
+
+    # 3. Build IPA signé
+    gym(
+      workspace:               WORKSPACE,
+      scheme:                  SCHEME,
+      configuration:           "Release",
+      export_method:           "app-store",
+      output_directory:        "./build",
+      output_name:             "PatriMoi.ipa",
+      clean:                   true,
+      xcargs:                  "ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES=NO",
+    )
+
+    # 4. Upload TestFlight (sans soumettre à review)
+    pilot(
+      ipa:                      "./build/PatriMoi.ipa",
+      skip_waiting_for_build_processing: true,
+      skip_submission:          true,
+      distribute_external:      false,
+      notify_external_testers:  false,
+      changelog:                changelog_from_git_commits(
+        merge_commit_filtering: "exclude_merges",
+        date_format:            "short",
+      ),
+    )
+
+    # 5. Tag Git + notif succès
+    add_git_tag(tag: "build/#{get_build_number}")
+    push_git_tags
+
+    UI.success "✅ Build #{get_build_number} uploadé sur TestFlight !"
+  end
+
+  # ── Build local de vérification (sans upload) ─────────────────────────────
+  desc "Build simulator (test rapide, pas de signature)"
+  lane :verify do
+    sh "xcodebuild build \
+      -workspace ../#{WORKSPACE} \
+      -scheme #{SCHEME} \
+      -configuration Debug \
+      -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+      CODE_SIGNING_ALLOWED=NO \
+      | xcpretty"
+  end
+
+  # ── Gestion des erreurs ───────────────────────────────────────────────────
+  error do |lane, exception|
+    UI.error "❌ Fastlane erreur en lane [#{lane}] : #{exception.message}"
+  end
+end

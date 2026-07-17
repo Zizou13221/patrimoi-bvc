@@ -669,7 +669,7 @@ function PageParams() {
               <div style={{fontSize:12,color:C.g3,marginTop:2}}>Comptes illimités · Temps réel · Export</div>
             </div>
             <div style={{textAlign:'right'}}>
-              <div style={{fontWeight:700,fontSize:16,color:C.pri}}>49 DH</div>
+              <div style={{fontWeight:700,fontSize:16,color:C.pri}}>29 DH</div>
               <div style={{fontSize:10,color:C.g3}}>/mois</div>
             </div>
           </div>
