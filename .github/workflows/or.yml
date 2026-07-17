@@ -1,0 +1,51 @@
+name: Or Prix Update
+
+on:
+  schedule:
+    # Tous les jours à 08h00 UTC (10h00 heure Maroc)
+    - cron: '0 8 * * *'
+
+  # Déclenchement manuel depuis GitHub Actions
+  workflow_dispatch:
+
+jobs:
+  update-or:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write   # nécessaire pour git push
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'scripts/requirements.txt'
+
+      - name: Installer dépendances
+        run: pip install -r scripts/requirements.txt
+
+      - name: Scraper prix or (18k.ma)
+        run: python scripts/scrape_or.py --output or_prix.json
+        continue-on-error: true
+
+      - name: Vérifier que le JSON est valide
+        run: python -c "import json; d=json.load(open('or_prix.json')); print(f'JSON valide ✓ — {d[\"prixOr\"]} DH/g (source: {d[\"source\"]})')"
+
+      - name: Commit & push si changements
+        run: |
+          git config user.name  "patrimoi-bot"
+          git config user.email "bot@patrimoi.app"
+          git add or_prix.json
+          if git diff --staged --quiet; then
+            echo "Aucun changement à committer."
+          else
+            git commit -m "chore: Or update $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git pull --rebase origin main
+            git push origin main
+          fi

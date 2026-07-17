@@ -111,6 +111,8 @@ PATRIMOI_TICKERS = {
     "MSA",
     # Autres
     "MDP", "FBR", "NAKL",
+    # Services
+    "T2S",   # Trans2S Holding
 }
 
 # ── Alias TradingView → code BVC (TradingView tronque certains tickers) ───────
@@ -242,8 +244,8 @@ def scrape_tradingview() -> dict:
         variation = values[2] or 0.0
         if price and float(price) > 0:
             cours[ticker_mapped] = {
-                "cours":     round(float(price), 2),
-                "variation": round(float(variation), 2),
+                "cours":   round(float(price), 2),
+                "var_pct": round(float(variation), 2),
             }
             print(f"   tv ✓ {ticker_mapped} = {price:.2f} MAD  ({variation:+.2f}%)")
 
@@ -256,6 +258,39 @@ def scrape_tradingview() -> dict:
         raise ValueError("TradingView scanner : aucun ticker PatriMoi trouvé")
 
     return cours
+
+
+# ── MASI — indice général BVC (TradingView casablanca scanner) ───────────────
+
+def fetch_masi() -> dict | None:
+    """
+    Récupère l'indice MASI via TradingView scanner casablanca.
+    Retourne { cours, var_pct } ou None si indisponible.
+    """
+    try:
+        payload = {
+            "symbols": {"tickers": ["XCAS:MASI"]},
+            "columns": ["name", "close", "change"],
+        }
+        resp = requests.post(
+            "https://scanner.tradingview.com/casablanca/scan",
+            json=payload,
+            headers=TV_HEADERS,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get("data") or []
+        if items:
+            values = items[0].get("d", [])
+            if len(values) >= 3 and values[1] and float(values[1]) > 0:
+                return {
+                    "cours":   round(float(values[1]), 2),
+                    "var_pct": round(float(values[2] or 0), 2),
+                }
+    except Exception as e:
+        print(f"   ⚠ MASI fetch erreur : {e}", file=sys.stderr)
+    return None
 
 
 # ── Source 2 : lematin.ma ─────────────────────────────────────────────────────
@@ -297,8 +332,8 @@ def scrape_lematin() -> dict:
         var    = parse_variation(text)
         if prix and prix > 0:
             cours[ticker] = {
-                "cours":     round(prix, 2),
-                "variation": round(var, 2) if var is not None else 0.0,
+                "cours":   round(prix, 2),
+                "var_pct": round(var, 2) if var is not None else 0.0,
             }
     return cours
 
@@ -332,7 +367,7 @@ def scrape_medias24() -> dict:
     for ticker, isin in TICKERS_MEDIAS24.items():
         result = fetch_medias24(ticker, isin)
         if result:
-            cours[ticker] = result
+            cours[ticker] = {"cours": result["cours"], "var_pct": result.get("variation", 0.0)}
             print(f"   medias24 ✓ {ticker} = {result['cours']} MAD")
         else:
             print(f"   medias24 ✗ {ticker}", file=sys.stderr)
@@ -400,6 +435,15 @@ def run(output_path: str = "bvc_cours.json") -> bool:
         print("⚠ Fallback stale (aucun fichier précédent)")
         cours           = {k: {**v, "stale": True} for k, v in cours_precedents.items()}
         source_utilisee = "stale"
+
+    # Fetch MASI séparément (indice global, pas un ticker BVC standard)
+    print("→ Fetch MASI …")
+    masi = fetch_masi()
+    if masi:
+        cours["MASI"] = masi
+        print(f"   ✓ MASI = {masi['cours']} ({masi['var_pct']:+.2f}%)")
+    else:
+        print("   ⚠ MASI non disponible", file=sys.stderr)
 
     # Aliases de compatibilité (ex : GAZ → aussi AFG pour anciens utilisateurs)
     for alias, real in PATRIMOI_ALIASES.items():
