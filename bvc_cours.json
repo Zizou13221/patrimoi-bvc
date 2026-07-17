@@ -1,209 +1,321 @@
 {
-  "updated": "2026-07-12T10:26:48.677955+00:00",
-  "source": "stale",
+  "updated": "2026-07-17T10:35:31.950184+00:00",
+  "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
-  "succes": 0,
-  "echecs": 20,
+  "succes": 78,
+  "echecs": 0,
   "cours": {
-    "ATW": {
-      "cours": 685.0,
-      "ouverture": 680.0,
-      "haut": 688.0,
-      "bas": 678.0,
-      "volume": 42310,
-      "date": "2026-07-04",
-      "isin": "MA0000011885",
-      "stale": true
-    },
-    "BCP": {
-      "cours": 312.5,
-      "ouverture": 310.0,
-      "haut": 314.0,
-      "bas": 308.0,
-      "volume": 28750,
-      "date": "2026-07-04",
-      "isin": "MA0000011884",
-      "stale": true
-    },
-    "CIH": {
-      "cours": 398.0,
-      "ouverture": 395.0,
-      "haut": 401.0,
-      "bas": 393.0,
-      "volume": 15200,
-      "date": "2026-07-04",
-      "isin": "MA0000011899",
-      "stale": true
-    },
-    "BOA": {
-      "cours": 248.0,
-      "ouverture": 246.0,
-      "haut": 250.0,
-      "bas": 244.0,
-      "volume": 9800,
-      "date": "2026-07-04",
-      "isin": "MA0000011895",
-      "stale": true
-    },
-    "CDM": {
-      "cours": 610.0,
-      "ouverture": 608.0,
-      "haut": 615.0,
-      "bas": 606.0,
-      "volume": 5100,
-      "date": "2026-07-04",
-      "isin": "MA0000011893",
-      "stale": true
-    },
-    "BMCI": {
-      "cours": 740.0,
-      "ouverture": 738.0,
-      "haut": 745.0,
-      "bas": 735.0,
-      "volume": 3200,
-      "date": "2026-07-04",
-      "isin": "MA0000011890",
-      "stale": true
-    },
-    "IAM": {
-      "cours": 128.5,
-      "ouverture": 127.0,
-      "haut": 129.0,
-      "bas": 126.5,
-      "volume": 85000,
-      "date": "2026-07-04",
-      "isin": "MA0000011880",
-      "stale": true
-    },
-    "ATL": {
-      "cours": 162.0,
-      "ouverture": 160.0,
-      "haut": 163.0,
-      "bas": 159.0,
-      "volume": 12400,
-      "date": "2026-07-04",
-      "isin": "MA0000011902",
-      "stale": true
-    },
-    "WAA": {
-      "cours": 4850.0,
-      "ouverture": 4820.0,
-      "haut": 4870.0,
-      "bas": 4810.0,
-      "volume": 1200,
-      "date": "2026-07-04",
-      "isin": "MA0000011909",
-      "stale": true
-    },
     "ADH": {
-      "cours": 38.5,
-      "ouverture": 38.0,
-      "haut": 39.0,
-      "bas": 37.8,
-      "volume": 120000,
-      "date": "2026-07-04",
-      "isin": "MA0000011922",
-      "stale": true
+      "cours": 33.15,
+      "variation": -0.9
+    },
+    "ADI": {
+      "cours": 377.0,
+      "variation": -0.26
+    },
+    "AFI": {
+      "cours": 325.95,
+      "variation": 0.9
+    },
+    "AFM": {
+      "cours": 1231.0,
+      "variation": -3.07
+    },
+    "AGM": {
+      "cours": 7170.0,
+      "variation": 5.67
+    },
+    "AKT": {
+      "cours": 1146.0,
+      "variation": -0.17
     },
     "ALM": {
-      "cours": 22.1,
-      "ouverture": 21.9,
-      "haut": 22.3,
-      "bas": 21.8,
-      "volume": 95000,
-      "date": "2026-07-04",
-      "isin": "MA0000011924",
-      "stale": true
+      "cours": 1720.0,
+      "variation": -5.44
     },
-    "RDS": {
+    "ARD": {
+      "cours": 420.0,
+      "variation": 0.0
+    },
+    "ATH": {
+      "cours": 68.89,
+      "variation": 1.32
+    },
+    "ATL": {
+      "cours": 124.45,
+      "variation": 1.18
+    },
+    "ATW": {
+      "cours": 680.2,
+      "variation": -0.56
+    },
+    "BAL": {
+      "cours": 188.6,
+      "variation": 0.0
+    },
+    "BCI": {
+      "cours": 610.0,
+      "variation": -0.97
+    },
+    "BCP": {
+      "cours": 249.0,
+      "variation": -0.16
+    },
+    "BOA": {
+      "cours": 191.0,
+      "variation": 1.06
+    },
+    "CAP": {
+      "cours": 241.5,
+      "variation": -1.43
+    },
+    "CDM": {
+      "cours": 1000.0,
+      "variation": 0.0
+    },
+    "CFG": {
+      "cours": 192.0,
+      "variation": 1.05
+    },
+    "CIH": {
+      "cours": 349.95,
+      "variation": 0.27
+    },
+    "CMA": {
+      "cours": 1635.0,
+      "variation": -0.91
+    },
+    "CMG": {
+      "cours": 320.1,
+      "variation": -1.2
+    },
+    "CMT": {
+      "cours": 4350.0,
+      "variation": -3.65
+    },
+    "COL": {
+      "cours": 77.1,
+      "variation": 0.08
+    },
+    "CRS": {
+      "cours": 24.8,
+      "variation": 1.22
+    },
+    "CSR": {
+      "cours": 192.5,
+      "variation": 0.26
+    },
+    "CTM": {
+      "cours": 888.9,
+      "variation": 3.12
+    },
+    "DHO": {
       "cours": 56.0,
-      "ouverture": 55.5,
-      "haut": 56.5,
-      "bas": 55.2,
-      "volume": 32000,
-      "date": "2026-07-04",
-      "isin": "MA0000011920",
-      "stale": true
+      "variation": -1.75
     },
-    "AFG": {
-      "cours": 4650.0,
-      "ouverture": 4620.0,
-      "haut": 4680.0,
-      "bas": 4610.0,
-      "volume": 2100,
-      "date": "2026-07-04",
-      "isin": "MA0000011887",
-      "stale": true
+    "DWAY": {
+      "cours": 770.0,
+      "variation": 0.0
     },
-    "LHM": {
-      "cours": 196.0,
-      "ouverture": 195.0,
-      "haut": 198.0,
-      "bas": 194.0,
-      "volume": 8500,
-      "date": "2026-07-04",
-      "isin": "MA0000011930",
-      "stale": true
+    "DYT": {
+      "cours": 336.0,
+      "variation": -0.44
+    },
+    "EQD": {
+      "cours": 1600.0,
+      "variation": 3.29
+    },
+    "FBR": {
+      "cours": 263.0,
+      "variation": -2.23
+    },
+    "GAZ": {
+      "cours": 3720.0,
+      "variation": 1.64
+    },
+    "GTM": {
+      "cours": 692.0,
+      "variation": -0.59
     },
     "HPS": {
-      "cours": 6200.0,
-      "ouverture": 6180.0,
-      "haut": 6230.0,
-      "bas": 6160.0,
-      "volume": 850,
-      "date": "2026-07-04",
-      "isin": "MA0000011910",
-      "stale": true
+      "cours": 600.0,
+      "variation": 0.0
     },
-    "MNG": {
-      "cours": 248.0,
-      "ouverture": 245.0,
-      "haut": 250.0,
-      "bas": 243.0,
-      "volume": 18600,
-      "date": "2026-07-04",
-      "isin": "MA0000011935",
-      "stale": true
+    "IAM": {
+      "cours": 91.8,
+      "variation": 0.44
     },
-    "MSA": {
-      "cours": 1210.0,
-      "ouverture": 1200.0,
-      "haut": 1220.0,
-      "bas": 1195.0,
-      "volume": 2800,
-      "date": "2026-07-04",
-      "isin": "MA0000011928",
-      "stale": true
+    "IBMC": {
+      "cours": 59.98,
+      "variation": 1.68
     },
-    "TMA": {
-      "cours": 1985.0,
-      "ouverture": 1970.0,
-      "haut": 1995.0,
-      "bas": 1965.0,
-      "volume": 3400,
-      "date": "2026-07-04",
-      "isin": "MA0000011926",
-      "stale": true
+    "IMO": {
+      "cours": 90.5,
+      "variation": -0.22
+    },
+    "INV": {
+      "cours": 122.0,
+      "variation": 1.62
+    },
+    "JET": {
+      "cours": 2050.0,
+      "variation": 0.05
     },
     "LBV": {
-      "cours": 3750.0,
-      "ouverture": 3730.0,
-      "haut": 3770.0,
-      "bas": 3720.0,
-      "volume": 1500,
-      "date": "2026-07-04",
-      "isin": "MA0000011919",
-      "stale": true
+      "cours": 3600.0,
+      "variation": -0.28
+    },
+    "LES": {
+      "cours": 305.0,
+      "variation": -3.63
+    },
+    "LHM": {
+      "cours": 1779.0,
+      "variation": 0.0
+    },
+    "M2M": {
+      "cours": 378.0,
+      "variation": -0.53
+    },
+    "MAB": {
+      "cours": 892.0,
+      "variation": 0.11
+    },
+    "MDP": {
+      "cours": 26.01,
+      "variation": 3.09
+    },
+    "MIC": {
+      "cours": 757.0,
+      "variation": -2.32
+    },
+    "MLE": {
+      "cours": 360.35,
+      "variation": 5.99
+    },
+    "MNG": {
+      "cours": 12401.0,
+      "variation": 0.82
+    },
+    "MOX": {
+      "cours": 330.15,
+      "variation": -9.05
+    },
+    "MSA": {
+      "cours": 858.0,
+      "variation": -1.94
     },
     "MUT": {
-      "cours": 226.0,
-      "ouverture": 224.0,
-      "haut": 228.0,
-      "bas": 222.0,
-      "volume": 7800,
-      "date": "2026-07-04",
-      "isin": "MA0000011914",
-      "stale": true
+      "cours": 228.5,
+      "variation": 0.2
+    },
+    "NEJ": {
+      "cours": 5100.0,
+      "variation": 5.5
+    },
+    "NAKL": {
+      "cours": 49.5,
+      "variation": 0.0
+    },
+    "OUL": {
+      "cours": 1153.0,
+      "variation": -0.6
+    },
+    "PRO": {
+      "cours": 1345.0,
+      "variation": 5.99
+    },
+    "RDS": {
+      "cours": 173.0,
+      "variation": -0.29
+    },
+    "REB": {
+      "cours": 88.01,
+      "variation": -3.98
+    },
+    "RIS": {
+      "cours": 315.0,
+      "variation": -0.03
+    },
+    "S2M": {
+      "cours": 498.0,
+      "variation": 0.0
+    },
+    "SAHM": {
+      "cours": 2974.0,
+      "variation": -2.97
+    },
+    "SBM": {
+      "cours": 2130.0,
+      "variation": -1.75
+    },
+    "SID": {
+      "cours": 1941.0,
+      "variation": -2.95
+    },
+    "SLF": {
+      "cours": 459.0,
+      "variation": 0.22
+    },
+    "SMI": {
+      "cours": 5860.0,
+      "variation": 0.15
+    },
+    "SNA": {
+      "cours": 66.21,
+      "variation": -2.62
+    },
+    "SNP": {
+      "cours": 315.0,
+      "variation": 0.0
+    },
+    "SOT": {
+      "cours": 365.95,
+      "variation": -0.14
+    },
+    "SRM": {
+      "cours": 475.0,
+      "variation": 3.94
+    },
+    "STR": {
+      "cours": 174.0,
+      "variation": -0.54
+    },
+    "TGC": {
+      "cours": 748.0,
+      "variation": -0.13
+    },
+    "TMA": {
+      "cours": 1490.0,
+      "variation": 0.0
+    },
+    "TQM": {
+      "cours": 1735.0,
+      "variation": -0.17
+    },
+    "UMR": {
+      "cours": 177.0,
+      "variation": 5.99
+    },
+    "VCN": {
+      "cours": 340.0,
+      "variation": 0.0
+    },
+    "WAA": {
+      "cours": 5260.0,
+      "variation": -1.15
+    },
+    "ZDJ": {
+      "cours": 180.0,
+      "variation": 0.25
+    },
+    "AFG": {
+      "cours": 3720.0,
+      "variation": 1.64
+    },
+    "BMCI": {
+      "cours": 610.0,
+      "variation": -0.97
     }
   }
 }
