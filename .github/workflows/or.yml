@@ -43,9 +43,10 @@ jobs:
           git config user.email "bot@patrimoi.app"
           git add or_prix.json
           if git diff --staged --quiet; then
-            echo "Aucun changement à committer."
+            echo "Aucun changement a committer."
           else
-            git commit -m "chore: Or update $(date -u '+%Y-%m-%d %H:%M UTC')"
+            TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+            git commit -m "chore: Or update ${TIMESTAMP}"
             git pull --rebase origin main
             git push origin main
           fi
