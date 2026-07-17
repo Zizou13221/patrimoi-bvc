@@ -35,7 +35,12 @@ jobs:
         continue-on-error: true
 
       - name: Vérifier que le JSON est valide
-        run: python -c "import json; d=json.load(open('or_prix.json')); print(f'JSON valide ✓ — {d[\"prixOr\"]} DH/g (source: {d[\"source\"]})')"
+        run: |
+          python -c "
+          import json
+          d = json.load(open('or_prix.json'))
+          print('JSON valide - ' + str(d['prixOr']) + ' DH/g (source: ' + d['source'] + ')')
+          "
 
       - name: Commit & push si changements
         run: |
