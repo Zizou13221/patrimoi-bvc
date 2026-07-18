@@ -283,10 +283,58 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     const d = data || INIT;
     setExportingPDF(true);
     try {
-      let RNHTMLtoPDF;
-      try { RNHTMLtoPDF = require('react-native-html-to-pdf').default; } catch {}
+      let RNHTMLtoPDF = null;
+
+      // Priorité 1 : module custom RNPDFExport (app target — fiable, pas de pod)
+      try {
+        const { NativeModules } = require('react-native');
+        const m = NativeModules?.RNPDFExport;
+        if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
+      } catch {}
+
+      // Priorité 2 : react-native-html-to-pdf si présent dans NativeModules
       if (!RNHTMLtoPDF) {
-        Alert.alert('Module PDF indisponible', 'Le module natif PDF n\'est pas lie. Relancez l\'app depuis Xcode apres un pod install.');
+        try {
+          const { NativeModules } = require('react-native');
+          const m = NativeModules?.RNHTMLtoPDF || NativeModules?.HtmlToPdf;
+          if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
+        } catch {}
+      }
+
+      // Priorité 3 : TurboModuleRegistry (bridgeless / New Arch)
+      if (!RNHTMLtoPDF) {
+        try {
+          const { TurboModuleRegistry } = require('react-native');
+          const m = TurboModuleRegistry?.get?.('RNPDFExport')
+                 || TurboModuleRegistry?.get?.('HtmlToPdf')
+                 || TurboModuleRegistry?.get?.('RNHTMLtoPDF');
+          if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
+        } catch {}
+      }
+
+      // Fallback : export texte formaté via Share natif (sans module PDF)
+      if (!RNHTMLtoPDF) {
+        const fmtTxt = (n) => n > 0 ? n.toLocaleString('fr-FR', { maximumFractionDigits:0 }) + ' DH' : '0 DH';
+        const sep = '─'.repeat(38);
+        const lines = [
+          '📊 PatriMoi — Rapport Patrimoine',
+          `Date : ${new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}`,
+          sep,
+          `Argent Liquide & Devises  ${fmtTxt(calcLiquide(d.liquidites))}`,
+          `Argent en Banque          ${fmtTxt(calcBanque(d.banque))}`,
+          `Compte sur Carnet         ${fmtTxt(calcCarnet(d.carnet))}`,
+          `Compte PEA                ${fmtTxt(calcPEA(d.pea))}`,
+          `Compte-Titre              ${fmtTxt(calcCT(d.ct))}`,
+          `Or & Métaux Précieux      ${fmtTxt(calcOr(d.or, d.prixOr))}`,
+          `Immobilier & Terrains     ${fmtTxt(calcImmo(d.immobilier))}`,
+          `Biens de Transport        ${fmtTxt(calcTransport(d.transport))}`,
+          sep,
+          `TOTAL PATRIMOINE          ${fmtTxt(totalPatrimoine(d))}`,
+          '',
+          'Généré par PatriMoi v1.6',
+        ].join('\n');
+        await Share.share({ message: lines, title: 'PatriMoi — Rapport Patrimoine' });
+        setExportingPDF(false);
         return;
       }
       const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });

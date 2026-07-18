@@ -23,6 +23,15 @@ export const usePatrimoineStore = create((set) => ({
     return { data: newData };
   }),
 
+  // setDataRaw : charge des données SANS enqueuer de sync
+  // À utiliser uniquement pour le chargement initial depuis Supabase.
+  // Évite que la donnée chargée (déjà en Supabase) écrase les mutations
+  // utilisateur en attente dans l'outbox.
+  setDataRaw: (fn) => set(state => {
+    const newData = typeof fn === 'function' ? fn(state.data) : fn;
+    return { data: newData };
+  }),
+
   // ── Navigation ────────────────────────────────────────────
   page: 'proverbe',
   sub:  null,

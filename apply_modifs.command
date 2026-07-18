@@ -5,8 +5,14 @@ DST=~/PatriMoiApp
 echo "Copie des fichiers modifiés vers $DST..."
 
 # Pages
+# Racine — PatriMoi_Native.jsx (AN_001 fix: setPage reset au login/démo)
+cp "$SRC/PatriMoi_Native.jsx"          "$DST/PatriMoi_Native.jsx"          && echo "✓ PatriMoi_Native.jsx (AN_001)"
+
+# Components (AN_006 fix: axes SparklineInteractive)
+cp "$SRC/src/components/shared.jsx"    "$DST/src/components/shared.jsx"    && echo "✓ shared.jsx (AN_006)"
+
 cp "$SRC/src/pages/PageAPropos.jsx"    "$DST/src/pages/PageAPropos.jsx"    && echo "✓ PageAPropos.jsx"
-cp "$SRC/src/pages/PageDashboard.jsx"  "$DST/src/pages/PageDashboard.jsx"  && echo "✓ PageDashboard.jsx"
+cp "$SRC/src/pages/PageDashboard.jsx"  "$DST/src/pages/PageDashboard.jsx"  && echo "✓ PageDashboard.jsx (timestamps BVC/Or)"
 cp "$SRC/src/pages/PageConseils.jsx"   "$DST/src/pages/PageConseils.jsx"   && echo "✓ PageConseils.jsx"
 cp "$SRC/src/pages/PageActifs.jsx"     "$DST/src/pages/PageActifs.jsx"     && echo "✓ PageActifs.jsx"
 cp "$SRC/src/pages/PageParams.jsx"     "$DST/src/pages/PageParams.jsx"     2>/dev/null && echo "✓ PageParams.jsx"
@@ -33,9 +39,13 @@ echo "✓ .ts/.tsx conflictuels supprimés de src/utils/"
 rm -f "$DST/src/store/patrimoineStore.ts" "$DST/src/store/patrimoineStore.tsx"
 echo "✓ store/patrimoineStore.ts supprimé (Metro utilisera .js)"
 
+# Copier patrimoineStore.js (contient setDataRaw — OBLIGATOIRE)
+mkdir -p "$DST/src/store"
+cp "$SRC/src/store/patrimoineStore.js" "$DST/src/store/patrimoineStore.js" && echo "✓ store/patrimoineStore.js (setDataRaw)"
+
 # Utils
-cp "$SRC/src/utils/syncQueue.js"       "$DST/src/utils/syncQueue.js"       && echo "✓ syncQueue.js"
-cp "$SRC/src/utils/api.js"             "$DST/src/utils/api.js"             && echo "✓ api.js"
+cp "$SRC/src/utils/syncQueue.js"       "$DST/src/utils/syncQueue.js"       && echo "✓ syncQueue.js (flush promise fix)"
+cp "$SRC/src/utils/api.js"             "$DST/src/utils/api.js"             && echo "✓ api.js (var_pct fallback variation)"
 cp "$SRC/src/utils/sentry.js"          "$DST/src/utils/sentry.js"          && echo "✓ sentry.js (stub)"
 cp "$SRC/src/utils/auth.js"            "$DST/src/utils/auth.js"            && echo "✓ auth.js"
 cp "$SRC/src/utils/supabase.js"        "$DST/src/utils/supabase.js"        && echo "✓ supabase.js"
@@ -82,6 +92,22 @@ cp "$SRC/src/navigation/AppNavigator.tsx" "$DST/src/navigation/AppNavigator.tsx"
 # Navigation ref et types
 cp "$SRC/src/navigation/navigationRef.ts"  "$DST/src/navigation/navigationRef.ts"  2>/dev/null && echo "✓ navigationRef.ts"
 cp "$SRC/src/navigation/types.ts"          "$DST/src/navigation/types.ts"           2>/dev/null && echo "✓ types.ts"
+
+# Module natif custom PDF (à ajouter manuellement à l'app target Xcode)
+IOS_TARGET="$DST/ios/PatriMoiApp"
+if [ -d "$IOS_TARGET" ]; then
+  cp "$SRC/ios_native/RNPDFExport.h" "$IOS_TARGET/RNPDFExport.h" && echo "✓ RNPDFExport.h → ios/PatriMoiApp/"
+  cp "$SRC/ios_native/RNPDFExport.m" "$IOS_TARGET/RNPDFExport.m" && echo "✓ RNPDFExport.m → ios/PatriMoiApp/"
+  echo ""
+  echo "⚠️  ÉTAPE XCODE REQUISE (une seule fois) :"
+  echo "   1. Dans Xcode → PatriMoiApp (target) → clic droit → 'Add Files to PatriMoiApp'"
+  echo "   2. Sélectionne RNPDFExport.h et RNPDFExport.m"
+  echo "   3. Coche 'Add to target: PatriMoiApp' → Add"
+  echo "   4. Build & Run (⌘R)"
+  echo "   → NativeModules.RNPDFExport sera disponible → PDF natif activé"
+else
+  echo "⚠️  Dossier ios/PatriMoiApp non trouvé — copie manuelle requise"
+fi
 
 echo ""
 echo "Fait ! Lance Metro avec reset-cache :"

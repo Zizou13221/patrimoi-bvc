@@ -62,6 +62,7 @@ const startSyncWorker = _fn(_syncMod, 'startSyncWorker', _noop);
 const stopSyncWorker  = _fn(_syncMod, 'stopSyncWorker',  _noop);
 const clearSyncState  = _fn(_syncMod, 'clearSyncState',  _noop);
 const flushNow        = _fn(_syncMod, 'flushNow',        _noopP);
+const enqueueSync     = _fn(_syncMod, 'enqueueSync',     _noop);
 
 const _storageMod   = (() => { try { return require('./src/utils/storage');    } catch(_) { return {}; } })();
 const storage       = _storageMod.storage || { getString: () => null, setString: _noop, delete: _noop };
@@ -146,7 +147,7 @@ export default function PatriMoi() {
   // ── Zustand store (Phase 2 DAT v1.6) ─────────────────────
   const {
     page, sub, setPage,
-    data, setData,
+    data, setData, setDataRaw,
     onboardingDone, setOnboardingDone,
     user, setUser,
     demoMode, setDemoMode,
@@ -220,15 +221,14 @@ export default function PatriMoi() {
 
   // ── 0. Vérification onboarding + restauration demoMode ───────
   useEffect(() => {
-    smartRead(ONBOARDING_KEY)
-      .then(v => setOnboardingDone(v === 'true'))
-      .catch(() => setOnboardingDone(true));
+    // Onboarding affiché à chaque lancement (pas de persistance)
+    setOnboardingDone(false);
     // Restaurer demoMode persisté
     AsyncStorage.getItem(DEMO_KEY).then(v => { if (v === 'true') setDemoMode(true); }).catch(() => {});
   }, []);
 
   const handleOnboardingDone = useCallback(() => {
-    storage.setString(ONBOARDING_KEY, 'true');
+    // Pas de sauvegarde → onboarding réapparaît au prochain lancement
     setOnboardingDone(true);
   }, []);
 
@@ -238,6 +238,12 @@ export default function PatriMoi() {
       const session = await getSession();
       if (session?.user) {
         setUser(session.user);
+        // CRITIQUE : écraser demoMode si une vraie session est détectée.
+        // Cas : utilisateur a testé le mode démo sur ce device, DEMO_KEY='true'
+        // est resté en AsyncStorage → setDemoMode(true) dans useEffect 0 →
+        // setData ne call plus enqueueSync → 0 sync Supabase.
+        setDemoMode(false);
+        AsyncStorage.removeItem(DEMO_KEY).catch(() => {});
         identifyUser(session.user.id);
         startSyncWorker();
       }
@@ -246,7 +252,10 @@ export default function PatriMoi() {
 
     const unsub = onAuthStateChange((session) => {
       if (session?.user) {
+        setPage('proverbe', null);
         setUser(session.user);
+        setDemoMode(false);                                     // même fix
+        AsyncStorage.removeItem(DEMO_KEY).catch(() => {});     // même fix
         identifyUser(session.user.id);
         addBreadcrumb('auth:signed_in');
         startSyncWorker();
@@ -267,11 +276,22 @@ export default function PatriMoi() {
     if (!authReady) return;
     (async () => {
       if (user) {
+        // ── Flush les mutations en attente AVANT de charger depuis Supabase ──
+        // Évite la race condition : kill app → outbox non vidé → loadPatrimoineData
+        // rapporte de vieilles données AVANT que le flush ait terminé.
+        // Avec flushNow() awaité ici, Supabase a TOUJOURS les dernières données
+        // au moment où on les charge.
+        try { await flushNow(); } catch {}
+
         const { data: remoteData, error } = await loadPatrimoineData(user.id);
         if (remoteData) {
           // Extraire l'historique embarqué et le merger avec l'historique local
           const { _history: remoteHist, ...cleanData } = remoteData;
-          setData(migrateData(cleanData));
+          // setDataRaw : ne déclenche PAS enqueueSync — évite que la donnée
+          // Supabase (déjà sauvegardée) réécrase les mutations en attente.
+          // Fallback sur setData si le store n'a pas encore setDataRaw.
+          const rawSetter = setDataRaw || setData;
+          rawSetter(migrateData(cleanData));
           if (remoteHist?.length > 0) {
             const rawLocal = await smartRead(HISTORY_KEY);
             const localHist = rawLocal ? (() => { try { return JSON.parse(rawLocal); } catch { return []; } })() : [];
@@ -292,14 +312,19 @@ export default function PatriMoi() {
     })();
   }, [authReady, user, demoMode]);
 
-  // ── 3. Sauvegarde debounce 500ms — local + Supabase (avec historique) ──────
-  // Sauvegarde locale (MMKV sync + AsyncStorage backup) — sync Supabase gérée par l'outbox
+  // ── 3. Sauvegarde locale — MMKV immédiat + AsyncStorage debounce ────────────
+  // MMKV est synchrone et rapide → pas besoin de debounce, on écrit tout de suite.
+  // Cela couvre le mode démo (pas d'enqueueSync) ET le compte réel.
+  // AsyncStorage (backup legacy) reste débounce 500ms car il est async.
   const saveData = useCallback((d) => {
+    // Écriture MMKV immédiate — survit à un kill app instantané
+    const localKey = user ? STORAGE_KEY : STORAGE_KEY + '_demo';
+    try { storage.set(localKey, d); } catch {}                       // MMKV sync
+
+    // AsyncStorage backup — debounce pour ne pas saturer
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      const localKey = user ? STORAGE_KEY : STORAGE_KEY + '_demo';
-      storage.set(localKey, d);                                      // MMKV (sync, rapide)
-      try { await AsyncStorage.setItem(localKey, JSON.stringify(d)); } catch {} // AsyncStorage backup
+      try { await AsyncStorage.setItem(localKey, JSON.stringify(d)); } catch {}
     }, 500);
   }, [user]);
 
@@ -410,9 +435,16 @@ export default function PatriMoi() {
   const handleNav = useCallback((p)                 => setPage(p, null),   [setPage]);
 
   const handleSignOut = useCallback(async () => {
+    // Flush les mutations en attente AVANT de déclencher signOut
+    // (clearSyncState() dans onAuthStateChange viderait sinon l'outbox)
+    if (user) {
+      try { await flushNow(); } catch {}
+      // Laisser 1s à Supabase pour confirmer l'écriture
+      await new Promise(r => setTimeout(r, 1000));
+    }
     const { signOut } = await import('./src/utils/auth');
     await signOut();
-  }, []);
+  }, [user]);
 
   // ── Onboarding (premier lancement) ───────────────────────
   if (onboardingDone === null) {
@@ -447,8 +479,8 @@ export default function PatriMoi() {
     return (
       <ErrorBoundary>
         <PageAuth
-          onAuthenticated={(u) => setUser(u)}
-          onDemo={() => { setDemoMode(true); AsyncStorage.setItem(DEMO_KEY, 'true').catch(() => {}); }}
+          onAuthenticated={(u) => { setPage('proverbe', null); setUser(u); }}
+          onDemo={() => { setPage('proverbe', null); setDemoMode(true); AsyncStorage.setItem(DEMO_KEY, 'true').catch(() => {}); }}
         />
       </ErrorBoundary>
     );

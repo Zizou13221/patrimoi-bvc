@@ -102,10 +102,11 @@ async function fetchBVCFromGitHub() {
     if (!json?.cours || Object.keys(json.cours).length === 0) return null;
 
     // Normaliser : { cours, var_pct } par ticker
+    // Compatibilité : ancien format JSON utilise "variation", nouveau utilise "var_pct"
     const cours = {};
     for (const [ticker, d] of Object.entries(json.cours)) {
       if (typeof d.cours === 'number' && d.cours > 0) {
-        cours[ticker] = { cours: d.cours, var_pct: d.var_pct ?? 0 };
+        cours[ticker] = { cours: d.cours, var_pct: d.var_pct ?? d.variation ?? 0 };
       }
     }
     if (__DEV__) console.log('[BVC] GitHub:', Object.keys(cours).length, 'tickers. ATW=', cours['ATW']?.cours, 'updated=', json.updated);

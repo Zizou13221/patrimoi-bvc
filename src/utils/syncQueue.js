@@ -85,10 +85,15 @@ function scheduleFLush() {
   _flushTimer = setTimeout(flush, FLUSH_DELAY);
 }
 
-/** Flush immédiat (à appeler quand l'app passe en arrière-plan). */
-export function flushNow() {
+/** Flush immédiat — vide TOUT l'outbox avant de résoudre. */
+export async function flushNow() {
   if (_flushTimer) { clearTimeout(_flushTimer); _flushTimer = null; }
-  flush();
+  // Flush toutes les mutations en attente (pas juste la première)
+  let safety = 0;
+  while (readQueue().length > 0 && safety < 20) {
+    await flush();
+    safety++;
+  }
 }
 
 async function flush() {

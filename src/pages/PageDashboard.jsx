@@ -128,6 +128,21 @@ const PageDashboard = React.memo(function PageDashboard({
     return { cours: m.cours, var: m.var_pct ?? m.var ?? null };
   }, [bvcStatus]); // eslint-disable-line
 
+  // Dernière mise à jour BVC (timestamp du workflow GH Actions dans le JSON)
+  const bvcUpdated = useMemo(() => {
+    const cache = getBvcCache();
+    const u = cache?.data?.updated;
+    if (!u) return null;
+    try {
+      const d = new Date(u);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mn = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm} ${hh}:${mn}`;
+    } catch { return null; }
+  }, [bvcStatus]); // eslint-disable-line
+
   const objSimulation = useMemo(() => {
     if (!objectif || !objectif.montant || total >= objectif.montant) return null;
     if (!history || history.length < 7) return null;
@@ -165,22 +180,30 @@ const PageDashboard = React.memo(function PageDashboard({
           <View style={{ flexDirection:'row', gap:6 }}>
             <TouchableOpacity
               onPress={onRefreshOr} disabled={isRefreshing}
-              style={{ backgroundColor:C.priD, borderRadius:6, paddingHorizontal:8, paddingVertical:3 }}
+              style={{ backgroundColor:C.priD, borderRadius:6, paddingHorizontal:8, paddingVertical:3, alignItems:'center' }}
               activeOpacity={0.7}
             >
               {isRefreshing
                 ? <ActivityIndicator size="small" color="rgba(180,230,200,0.9)"/>
-                : <Text style={{ fontSize:10, color:'rgba(180,230,200,0.9)' }}>↻ Or {data.lastUpdate}</Text>
+                : <>
+                    <Text style={{ fontSize:10, color:'rgba(180,230,200,0.9)' }}>↻ Or</Text>
+                    {data.lastUpdate ? (
+                      <Text style={{ fontSize:7, color:'rgba(180,230,200,0.5)', textAlign:'center' }}>{data.lastUpdate}</Text>
+                    ) : null}
+                  </>
               }
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onRefreshBVC}
-              style={{ backgroundColor:C.priD, borderRadius:6, paddingHorizontal:8, paddingVertical:3 }}
+              style={{ backgroundColor:C.priD, borderRadius:6, paddingHorizontal:8, paddingVertical:3, alignItems:'center' }}
               activeOpacity={0.7}
             >
               <Text style={{ fontSize:10, color:bvcStatus==='ok'?'#6EE7A0':bvcStatus==='error'?C.acc:'rgba(180,230,200,0.9)' }}>
                 {bvcStatus==='ok'?'✓ BVC':bvcStatus==='error'?'⚠ BVC':'↻ BVC'}
               </Text>
+              {bvcUpdated ? (
+                <Text style={{ fontSize:7, color:'rgba(180,230,200,0.5)', textAlign:'center' }}>{bvcUpdated}</Text>
+              ) : null}
             </TouchableOpacity>
           </View>
         </View>

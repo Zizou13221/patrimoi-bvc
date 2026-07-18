@@ -264,60 +264,95 @@ export const SparklineInteractive = ({ data, color, dates }) => {
   const tw    = Math.max(W / data.length, 20); // largeur zone tactile par point
   const selPt = sel !== null ? pts[sel] : null;
 
+  // Labels axes
+  const fmtVal  = (v) => v >= 1000000
+    ? (v / 1000000).toFixed(1) + 'M'
+    : v >= 1000 ? Math.round(v / 1000) + 'k' : String(Math.round(v));
+  const dateShort = (d) => d ? String(d).slice(0, 7) : '';   // "2024-03" ou "Achat"
+
   return (
     <View>
-      {/* Zone graphique */}
-      <View style={{ width: W, height: H }}>
-        {/* Segments de la courbe */}
-        {segments.map(({ cx, cy, len, ang }, i) => (
-          <View
-            key={i}
-            pointerEvents="none"
-            style={{
-              position:  'absolute',
-              width:     len,
-              height:    2,
-              backgroundColor: col,
-              opacity:   0.9,
-              left:      cx - len / 2,
-              top:       cy - 1,
-              transform: [{ rotate: `${ang}deg` }],
-            }}
-          />
-        ))}
-        {/* Point sélectionné */}
-        {selPt && (
-          <View
-            pointerEvents="none"
-            style={{
-              position:   'absolute',
-              width:  10, height: 10,
-              borderRadius: 5,
-              backgroundColor: col,
-              borderWidth: 2,
-              borderColor: '#fff',
-              left: selPt.x - 5,
-              top:  selPt.y - 5,
-              zIndex: 2,
-            }}
-          />
-        )}
-        {/* Zones tactiles (colonnes invisibles) */}
-        {pts.map((p, i) => (
-          <TouchableOpacity
-            key={i}
-            onPress={() => setSel(sel === i ? null : i)}
-            activeOpacity={1}
-            style={{
-              position: 'absolute',
-              width:  tw,
-              height: H,
-              left:   p.x - tw / 2,
-              top:    0,
-            }}
-          />
-        ))}
+      {/* Axes Y — valeurs min/max à gauche */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        {/* Colonne Y-axis */}
+        <View style={{ width: 32, height: H, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 3 }}>
+          <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.45)', fontVariant: ['tabular-nums'] }}>{fmtVal(max)}</Text>
+          <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.35)', fontVariant: ['tabular-nums'] }}>{fmtVal(min)}</Text>
+        </View>
+        {/* Zone graphique */}
+        <View style={{ width: W, height: H }}>
+          {/* Ligne de base Y */}
+          <View pointerEvents="none" style={{ position:'absolute', left:0, right:0, bottom:PADY-1, height:1, backgroundColor:'rgba(255,255,255,0.1)' }}/>
+          {/* Segments de la courbe */}
+          {segments.map(({ cx, cy, len, ang }, i) => (
+            <View
+              key={i}
+              pointerEvents="none"
+              style={{
+                position:  'absolute',
+                width:     len,
+                height:    2,
+                backgroundColor: col,
+                opacity:   0.9,
+                left:      cx - len / 2,
+                top:       cy - 1,
+                transform: [{ rotate: `${ang}deg` }],
+              }}
+            />
+          ))}
+          {/* Point sélectionné */}
+          {selPt && (
+            <View
+              pointerEvents="none"
+              style={{
+                position:   'absolute',
+                width:  10, height: 10,
+                borderRadius: 5,
+                backgroundColor: col,
+                borderWidth: 2,
+                borderColor: '#fff',
+                left: selPt.x - 5,
+                top:  selPt.y - 5,
+                zIndex: 2,
+              }}
+            />
+          )}
+          {/* Zones tactiles (colonnes invisibles) */}
+          {pts.map((p, i) => (
+            <TouchableOpacity
+              key={i}
+              onPress={() => setSel(sel === i ? null : i)}
+              activeOpacity={1}
+              style={{
+                position: 'absolute',
+                width:  tw,
+                height: H,
+                left:   p.x - tw / 2,
+                top:    0,
+              }}
+            />
+          ))}
+        </View>
       </View>
+
+      {/* Axe X — label Y-axis + dates */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, paddingLeft: 32 }}>
+        <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', flex: 0, marginRight: 2 }}>
+          {dateShort(dates?.[0])}
+        </Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>← Temps →</Text>
+        </View>
+        <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', flex: 0, marginLeft: 2 }}>
+          {dateShort(dates?.[dates.length - 1])}
+        </Text>
+      </View>
+
+      {/* Label axe Y */}
+      <View style={{ paddingLeft: 0, marginTop: 1 }}>
+        <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', marginLeft: 2 }}>↑ Valeur (DH)</Text>
+      </View>
+
       {/* Tooltip */}
       <View style={{ height:22, justifyContent:'center', alignItems:'center', marginTop:2 }}>
         {sel !== null && data[sel] !== undefined ? (

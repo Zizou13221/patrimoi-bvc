@@ -122,8 +122,8 @@ TV_TO_PATRIMOI = {
     "IBC":  "IBMC",   # IB Maroc.Com    : TV=IBC  → BVC=IBMC
     "NKL":  "NAKL",   # Ennakl          : TV=NKL  → BVC=NAKL
     "SAH":  "SAHM",   # Sanlam Maroc    : TV=SAH  → BVC=SAHM
-    # DIS (Diac Salaf), DLM (Delattre Levivier), HOL (Holcim), SAM (Samir)
-    # ne semblent pas listés sur TradingView (valeurs suspendues / peu liquides)
+    # DIS (Diac Salaf) et DLM (Delattre Levivier) : code TV = code BVC → pas d'alias
+    # HOL (Holcim), SAM (Samir) : suspendus / peu liquides, absents du scanner TV
 }
 
 # ── Alias de compatibilité (anciens codes app → codes BVC officiels) ──────────
