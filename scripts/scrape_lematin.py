@@ -260,20 +260,62 @@ def scrape_tradingview() -> dict:
     return cours
 
 
-# ── MASI — indice général BVC (TradingView casablanca scanner) ───────────────
+# ── MASI — indice général BVC ─────────────────────────────────────────────────
+# L'indice MASI n'est pas un ticker BVC ordinaire → pas dans le scanner Morocco.
+# On l'interroge directement via le scanner global TradingView (XCAS:MASI).
 
 def fetch_masi() -> dict | None:
     """
-    Récupère l'indice MASI via TradingView scanner casablanca.
+    Récupère l'indice MASI via TradingView scanner global.
     Retourne { cours, var_pct } ou None si indisponible.
     """
+    endpoints = [
+        # Scanner global — le plus fiable pour les indices
+        "https://scanner.tradingview.com/global/scan",
+        # Fallback : scanner Morocco avec ticker explicite
+        "https://scanner.tradingview.com/morocco/scan",
+    ]
+    payload = {
+        "symbols": {"tickers": ["XCAS:MASI"]},
+        "columns": ["close", "change"],
+    }
+    for url in endpoints:
+        try:
+            resp = requests.post(url, json=payload, headers=TV_HEADERS, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            items = data.get("data") or []
+            if items:
+                values = items[0].get("d", [])
+                if len(values) >= 2 and values[0] and float(values[0]) > 0:
+                    return {
+                        "cours":   round(float(values[0]), 2),
+                        "var_pct": round(float(values[1] or 0), 2),
+                    }
+        except Exception as e:
+            print(f"   ⚠ MASI {url.split('/')[-2]} erreur : {e}", file=sys.stderr)
+            continue
+    return None
+
+
+# ── Tickers non retournés par le scanner Morocco (lookup direct) ──────────────
+# Certains tickers BVC (peu liquides, récemment introduits, etc.) n'apparaissent
+# pas dans le scanner Morocco générique. On les interroge un par un.
+
+DIRECT_TV_LOOKUPS = {
+    "T2S": "XCAS:T2S",   # Trans2S Holding — absent du scanner Morocco
+}
+
+
+def fetch_direct_tv(tv_symbol: str) -> dict | None:
+    """Fetch un ticker spécifique via le scanner global TradingView."""
     try:
         payload = {
-            "symbols": {"tickers": ["XCAS:MASI"]},
-            "columns": ["name", "close", "change"],
+            "symbols": {"tickers": [tv_symbol]},
+            "columns": ["close", "change"],
         }
         resp = requests.post(
-            "https://scanner.tradingview.com/casablanca/scan",
+            "https://scanner.tradingview.com/global/scan",
             json=payload,
             headers=TV_HEADERS,
             timeout=10,
@@ -283,13 +325,13 @@ def fetch_masi() -> dict | None:
         items = data.get("data") or []
         if items:
             values = items[0].get("d", [])
-            if len(values) >= 3 and values[1] and float(values[1]) > 0:
+            if len(values) >= 2 and values[0] and float(values[0]) > 0:
                 return {
-                    "cours":   round(float(values[1]), 2),
-                    "var_pct": round(float(values[2] or 0), 2),
+                    "cours":   round(float(values[0]), 2),
+                    "var_pct": round(float(values[1] or 0), 2),
                 }
     except Exception as e:
-        print(f"   ⚠ MASI fetch erreur : {e}", file=sys.stderr)
+        print(f"   ⚠ Direct TV {tv_symbol} erreur : {e}", file=sys.stderr)
     return None
 
 
@@ -435,6 +477,17 @@ def run(output_path: str = "bvc_cours.json") -> bool:
         print("⚠ Fallback stale (aucun fichier précédent)")
         cours           = {k: {**v, "stale": True} for k, v in cours_precedents.items()}
         source_utilisee = "stale"
+
+    # Fetch direct pour les tickers absents du scanner Morocco (ex: T2S)
+    for ticker, tv_symbol in DIRECT_TV_LOOKUPS.items():
+        if ticker not in cours:
+            print(f"→ Fetch direct {ticker} ({tv_symbol}) …")
+            result = fetch_direct_tv(tv_symbol)
+            if result:
+                cours[ticker] = result
+                print(f"   ✓ {ticker} = {result['cours']} MAD ({result['var_pct']:+.2f}%)")
+            else:
+                print(f"   ⚠ {ticker} non disponible", file=sys.stderr)
 
     # Fetch MASI séparément (indice global, pas un ticker BVC standard)
     print("→ Fetch MASI …")
