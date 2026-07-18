@@ -132,6 +132,7 @@ TV_TO_PATRIMOI = {
 PATRIMOI_ALIASES = {
     "AFG":  "GAZ",   # Afriquia Gaz : app=AFG → BVC=GAZ
     "BMCI": "BCI",   # BMCI Bank    : app=BMCI → BVC=BCI
+    "HOL":  "LHM",   # Holcim Maroc : TV=CSEMA:LHM = même titre que LafargeHolcim (LHM)
 }
 
 # ── Source 2 : medias24.com (fallback ISIN) ───────────────────────────────────
@@ -310,7 +311,7 @@ DIRECT_TV_LOOKUPS = {
     "DARI": "CSEMA:DRI",   # Dari Couspate — TV=DRI
     "DIS":  "CSEMA:DIS",   # Diac Salaf SA
     "DLM":  "CSEMA:DLM",   # Delattre Levivier Maroc SA
-    "HOL":  "CSEMA:HOL",   # Holcim Maroc
+    # HOL supprimé : TV=CSEMA:LHM → même valeur que LHM déjà scrapé (voir PATRIMOI_ALIASES)
 }
 
 
