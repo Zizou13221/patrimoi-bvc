@@ -267,6 +267,7 @@ def scrape_tradingview() -> dict:
 def fetch_masi() -> dict | None:
     """
     Récupère l'indice MASI via TradingView scanner global.
+    Symbole TradingView : CSEMA:MASI (exchange CSEMA, pas XCAS)
     Retourne { cours, var_pct } ou None si indisponible.
     """
     endpoints = [
@@ -276,7 +277,7 @@ def fetch_masi() -> dict | None:
         "https://scanner.tradingview.com/morocco/scan",
     ]
     payload = {
-        "symbols": {"tickers": ["XCAS:MASI"]},
+        "symbols": {"tickers": ["CSEMA:MASI"]},
         "columns": ["close", "change"],
     }
     for url in endpoints:
@@ -303,7 +304,10 @@ def fetch_masi() -> dict | None:
 # pas dans le scanner Morocco générique. On les interroge un par un.
 
 DIRECT_TV_LOOKUPS = {
-    "T2S": "XCAS:T2S",   # Trans2S Holding — absent du scanner Morocco
+    "T2S":  "XCAS:T2S",   # Trans2S Holding — absent du scanner Morocco (listing BVC à venir)
+    "DARI": "XCAS:DRI",   # Dari Couspate — TV=DRI, absent du scanner Morocco
+    "DIS":  "XCAS:DIS",   # Diac Salaf SA — absent du scanner Morocco
+    "DLM":  "XCAS:DLM",   # Delattre Levivier Maroc SA — absent du scanner Morocco
 }
 
 
