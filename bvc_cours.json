@@ -1,8 +1,8 @@
 {
-  "updated": "2026-07-18T17:44:01.912579+00:00",
+  "updated": "2026-07-18T17:50:08.980959+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
-  "succes": 82,
+  "succes": 83,
   "echecs": 0,
   "cours": {
     "ADH": {
@@ -332,6 +332,10 @@
     "BMCI": {
       "cours": 588.0,
       "var_pct": -4.55
+    },
+    "HOL": {
+      "cours": 1701.0,
+      "var_pct": -4.38
     }
   }
 }
