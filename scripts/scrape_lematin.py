@@ -304,10 +304,13 @@ def fetch_masi() -> dict | None:
 # pas dans le scanner Morocco générique. On les interroge un par un.
 
 DIRECT_TV_LOOKUPS = {
-    "T2S":  "XCAS:T2S",   # Trans2S Holding — absent du scanner Morocco (listing BVC à venir)
-    "DARI": "XCAS:DRI",   # Dari Couspate — TV=DRI, absent du scanner Morocco
-    "DIS":  "XCAS:DIS",   # Diac Salaf SA — absent du scanner Morocco
-    "DLM":  "XCAS:DLM",   # Delattre Levivier Maroc SA — absent du scanner Morocco
+    # Exchange BVC sur TradingView = CSEMA: (et non XCAS:) pour ces tickers
+    # absents du scanner morocco/scan générique
+    "T2S":  "CSEMA:T2S",   # Trans2S Holding — listing BVC à venir
+    "DARI": "CSEMA:DRI",   # Dari Couspate — TV=DRI
+    "DIS":  "CSEMA:DIS",   # Diac Salaf SA
+    "DLM":  "CSEMA:DLM",   # Delattre Levivier Maroc SA
+    "HOL":  "CSEMA:HOL",   # Holcim Maroc
 }
 
 
