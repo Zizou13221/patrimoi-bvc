@@ -1,8 +1,8 @@
 {
-  "updated": "2026-07-18T17:32:19.067505+00:00",
+  "updated": "2026-07-18T17:44:01.912579+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
-  "succes": 78,
+  "succes": 82,
   "echecs": 0,
   "cours": {
     "ADH": {
@@ -308,6 +308,22 @@
     "ZDJ": {
       "cours": 180.0,
       "var_pct": 0.25
+    },
+    "DARI": {
+      "cours": 4190.0,
+      "var_pct": 0.0
+    },
+    "DIS": {
+      "cours": 27.42,
+      "var_pct": -31.45
+    },
+    "DLM": {
+      "cours": 40.0,
+      "var_pct": 0.0
+    },
+    "MASI": {
+      "cours": 17578.83,
+      "var_pct": -1.18
     },
     "AFG": {
       "cours": 3700.0,
