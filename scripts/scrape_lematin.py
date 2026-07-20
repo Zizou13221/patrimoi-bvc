@@ -216,7 +216,7 @@ def scrape_tradingview() -> dict:
     POST https://scanner.tradingview.com/morocco/scan
     Retourne { TICKER: { cours, variation } } pour tous les tickers PatriMoi trouvés.
     """
-    resp = requests.post(TV_SCANNER_URL, json=TV_PAYLOAD, headers=TV_HEADERS, timeout=20)
+    resp = requests.post(TV_SCANNER_URL, json=TV_PAYLOAD, headers=TV_HEADERS, timeout=(5, 10))
     resp.raise_for_status()
     data = resp.json()
 
@@ -283,7 +283,7 @@ def fetch_masi() -> dict | None:
     }
     for url in endpoints:
         try:
-            resp = requests.post(url, json=payload, headers=TV_HEADERS, timeout=10)
+            resp = requests.post(url, json=payload, headers=TV_HEADERS, timeout=(5, 8))
             resp.raise_for_status()
             data = resp.json()
             items = data.get("data") or []
@@ -326,7 +326,7 @@ def fetch_direct_tv(tv_symbol: str) -> dict | None:
             "https://scanner.tradingview.com/global/scan",
             json=payload,
             headers=TV_HEADERS,
-            timeout=10,
+            timeout=(5, 8),
         )
         resp.raise_for_status()
         data = resp.json()
@@ -366,7 +366,7 @@ def parse_variation(text: str):
 
 
 def scrape_lematin() -> dict:
-    resp = requests.get(LEMATIN_URL, headers=HEADERS_BROWSER, timeout=20)
+    resp = requests.get(LEMATIN_URL, headers=HEADERS_BROWSER, timeout=(5, 10))
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     cours = {}
@@ -398,7 +398,7 @@ def fetch_medias24(ticker: str, isin: str):
         f"&format=json&from=2024-01-01&to={today}"
     )
     try:
-        r    = requests.get(url, headers=HEADERS_API, timeout=12)
+        r    = requests.get(url, headers=HEADERS_API, timeout=(5, 8))
         r.raise_for_status()
         data = r.json()
         if not data or not isinstance(data, list):
@@ -421,7 +421,7 @@ def scrape_medias24() -> dict:
             print(f"   medias24 ✓ {ticker} = {result['cours']} MAD")
         else:
             print(f"   medias24 ✗ {ticker}", file=sys.stderr)
-        time.sleep(0.4)
+        time.sleep(0.1)
     return cours
 
 
