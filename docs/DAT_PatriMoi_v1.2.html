@@ -410,7 +410,7 @@
 
 <div class="diagram-wrap">
   <div class="diagram-title">Séquence boot — initialisation stockage (storage.js)</div>
-  <svg viewBox="0 0 800 420" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 800 510" width="100%" xmlns="http://www.w3.org/2000/svg">
     <!-- Timeline labels -->
     <text x="60" y="30" fill="#6c8ef7" font-size="12" font-weight="700">Module Load</text>
     <text x="280" y="30" fill="#f7c26c" font-size="12" font-weight="700">initStorage()</text>
@@ -471,12 +471,43 @@
     <!-- Phase2 → Ready -->
     <line x1="480" y1="139" x2="518" y2="139" stroke="#5ee7a7" stroke-width="1.5" marker-end="url(#arr-green)"/>
     <line x1="480" y1="200" x2="518" y2="197" stroke="#5ee7a7" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+    <!-- Séparateur step 5 -->
+    <line x1="240" y1="370" x2="240" y2="500" stroke="#2e3250" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="500" y1="370" x2="500" y2="500" stroke="#2e3250" stroke-width="1" stroke-dasharray="4,3"/>
+
+    <!-- Flèche verticale Phase2 → Step5 (depuis le bas du ready block) -->
+    <line x1="370" y1="354" x2="370" y2="378" stroke="#6c8ef7" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#arr-blue)"/>
+
+    <!-- Step 5 box — Migration PIN -->
+    <rect x="260" y="380" width="220" height="68" rx="6" fill="#1e2d5a" stroke="#6c8ef7" stroke-width="1.5"/>
+    <text x="370" y="400" text-anchor="middle" fill="#6c8ef7" font-size="11" font-weight="600">Step 5 — Migration PIN (boot)</text>
+    <text x="370" y="416" text-anchor="middle" fill="#94a3b8" font-size="10">KC.getGenericPassword('patrimoi.pin')</text>
+    <text x="370" y="430" text-anchor="middle" fill="#64748b" font-size="10">isPinLegacy() → hashPin() → write KC</text>
+    <text x="370" y="444" text-anchor="middle" fill="#5ee7a7" font-size="9">non fatal — silencieux si pas de PIN</text>
+
+    <!-- Step 5 result box -->
+    <rect x="520" y="380" width="200" height="58" rx="6" fill="#0d3325" stroke="#5ee7a7" stroke-width="1.5"/>
+    <text x="620" y="402" text-anchor="middle" fill="#5ee7a7" font-size="11">patrimoi.pin → hash:salt</text>
+    <text x="620" y="418" text-anchor="middle" fill="#94a3b8" font-size="10">migration silencieuse au boot</text>
+    <text x="620" y="432" text-anchor="middle" fill="#64748b" font-size="10">seul moment : PIN en clair lisible</text>
+
+    <!-- Step 5 → Ready -->
+    <line x1="480" y1="415" x2="518" y2="413" stroke="#5ee7a7" stroke-width="1.5" marker-end="url(#arr-green)"/>
   </svg>
 </div>
 
 <div class="callout callout-crit">
-  <div class="callout-title">Fix critique v1.2 — Préservation de clé</div>
-  <p>Sur simulateur ou build Debug sans entitlement Keychain Sharing, <code>KC.setGenericPassword()</code> lance <code>errSecMissingEntitlement (-34018)</code>. Sans le fallback <code>if(mmkvKey) key = mmkvKey</code> dans le catch du step 2, <code>key</code> reste <code>null</code> → le step 3 génère une <em>nouvelle</em> clé → <code>patrimoi_v2</code> s'ouvre avec une clé différente → <strong>perte totale des données</strong>. Corrigé en juillet 2026.</p>
+  <div class="callout-title">Fix critique v1.2 — Préservation de clé (scope bug + fallback)</div>
+  <p>Sur simulateur ou build Debug sans entitlement Keychain Sharing, <code>KC.setGenericPassword()</code> lance <code>errSecMissingEntitlement (-34018)</code>. Dans le catch du step 2, le fallback <code>if (mmkvKey) key = mmkvKey</code> est critique : sans lui, <code>key</code> reste <code>null</code> → step 3 génère une <em>nouvelle</em> clé → <code>patrimoi_v2</code> s'ouvre avec une clé différente → <strong>perte totale des données</strong>.</p>
+  <p style="margin-top:8px"><strong>Bug de scope corrigé (juillet 2026) :</strong> <code>mmkvKey</code> était déclaré <code>const</code> à l'intérieur du bloc <code>try {}</code> — une variable <code>const</code>/<code>let</code> de bloc <code>try</code> n'est pas accessible dans le <code>catch</code> correspondant. <code>typeof mmkvKey</code> retournait <code>'undefined'</code> (pas de ReferenceError, mais condition toujours fausse), rendant le fallback silencieusement inopérant. Corrigé en hoissant la déclaration (<code>let mmkvKey = null</code>) avant le <code>try</code>.</p>
+  <p style="margin-top:8px"><strong>Sentry :</strong> ce cas d'usage émet l'événement <code>keychain_unavailable_fallback</code> (filtre entitlement : silencieux sur simulateur, actif sur device sans Keychain Sharing configuré).</p>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-title">Step 5 — Migration PIN au boot (v1.2.0) — one-shot</div>
+  <p>Ajouté dans <code>initStorage()</code> après le step 4. Conditionné par le flag <code>pin_migration_v2</code> dans <code>_store</code> (MMKV <code>patrimoi_v2</code>) : si le flag est absent, le step s'exécute — lit <code>patrimoi.pin</code> via Keychain, vérifie via <code>isPinLegacy()</code>, et si l'ancien format est détecté appelle <code>hashPin()</code> pour réécrire en <code>&lt;sha256&gt;:&lt;salt&gt;</code>. Le flag est ensuite écrit (<code>'1'</code>) que le PIN existe ou non, court-circuitant définitivement le step aux boots suivants.</p>
+  <p style="margin-top:8px"><strong>Pourquoi le flag :</strong> un appel <code>KC.getGenericPassword()</code> coûte 50–300 ms selon l'état du device. Sans guard, le step 5 ajoutait ce délai à <em>chaque</em> démarrage. Avec le flag, le surcoût n'existe qu'au premier boot post-v1.2.0. Le boot est le <strong>seul moment</strong> où la migration est possible sans redemander le PIN à l'utilisateur. <code>verifyPin()</code> et <code>isPinLegacy()</code> continuent de gérer les deux formats pendant la transition.</p>
 </div>
 
 <!-- ════════════════════════════════ 5. INTÉGRATION ══ -->
@@ -867,7 +898,9 @@ import * as Keychain from 'react-native-keychain'; // crashe en CI</code></pre>
 </table>
 
 <h4>PIN hashing — architecture de défense en profondeur</h4>
-<p>Un PIN 6 chiffres stocké en clair dans le Keychain serait lisible via un dump Keychain sur appareil jailbreaké. Le module <code>pinHash.js</code> implémente SHA-256 pur JS (zéro dépendance native, compatible Hermes) avec sel aléatoire <code>crypto.getRandomValues()</code>. La migration transparente depuis l'ancien format (PIN en clair sans <code>:</code>) se fait à la première vérification réussie.</p>
+<p>Un PIN 6 chiffres stocké en clair dans le Keychain serait lisible via un dump Keychain sur appareil jailbreaké. Le module <code>pinHash.js</code> implémente SHA-256 pur JS (zéro dépendance native, compatible Hermes) avec sel aléatoire <code>crypto.getRandomValues()</code>. Format stocké : <code>&lt;sha256_hex&gt;:&lt;salt_hex&gt;</code> (97 caractères).</p>
+
+<p><strong>Migration au boot (v1.2.0) :</strong> les devices ayant un PIN en ancien format (texte brut, sans <code>:</code>) sont migrés <strong>au premier démarrage post-v1.2.0</strong> dans <code>initStorage()</code> step 5. Le step est gardé par un flag <code>pin_migration_v2</code> dans MMKV : il ne s'exécute qu'une seule fois, évitant un appel Keychain superflu (50–300 ms) à chaque boot ultérieur. <code>isPinLegacy(stored)</code> détecte le format ancien ; <code>hashPin(pin)</code> produit le hash avec sel ; la valeur hachée est réécrite dans <code>patrimoi.pin</code>. <code>verifyPin()</code> gère les deux formats pendant la période de transition.</p>
 
 <!-- ════════════════════════════════ 10. TESTS ══ -->
 <h2 id="tests"><span class="num">10</span> Tests</h2>
