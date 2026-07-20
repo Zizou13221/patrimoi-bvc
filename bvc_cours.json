@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-20T14:47:43.177706+00:00",
+  "updated": "2026-07-20T15:00:18.439559+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 82,
@@ -162,8 +162,8 @@
       "var_pct": 2.9
     },
     "LBV": {
-      "cours": 3550.0,
-      "var_pct": -1.39
+      "cours": 3522.0,
+      "var_pct": -0.79
     },
     "LES": {
       "cours": 306.0,
@@ -222,8 +222,8 @@
       "var_pct": 5.99
     },
     "RDS": {
-      "cours": 168.5,
-      "var_pct": -2.6
+      "cours": 168.55,
+      "var_pct": -2.57
     },
     "REB": {
       "cours": 93.29,
@@ -262,8 +262,8 @@
       "var_pct": 1.31
     },
     "SNP": {
-      "cours": 319.8,
-      "var_pct": 1.52
+      "cours": 314.0,
+      "var_pct": -0.32
     },
     "SOT": {
       "cours": 359.95,
@@ -278,8 +278,8 @@
       "var_pct": -0.23
     },
     "TGC": {
-      "cours": 744.0,
-      "var_pct": 1.09
+      "cours": 730.0,
+      "var_pct": -0.82
     },
     "TMA": {
       "cours": 1435.0,
@@ -318,8 +318,8 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 17567.46,
-      "var_pct": -0.06
+      "cours": 17539.62,
+      "var_pct": -0.22
     },
     "AFG": {
       "cours": 3652.0,
