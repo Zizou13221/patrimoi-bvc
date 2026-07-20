@@ -56,6 +56,8 @@ cp "$SRC/src/utils/history.js"         "$DST/src/utils/history.js"         && ec
 cp "$SRC/src/utils/migrations.js"      "$DST/src/utils/migrations.js"      && echo "✓ migrations.js"
 cp "$SRC/src/utils/conseils.js"        "$DST/src/utils/conseils.js"        && echo "✓ conseils.js"
 cp "$SRC/src/utils/keychainStorage.js" "$DST/src/utils/keychainStorage.js" && echo "✓ keychainStorage.js"
+cp "$SRC/src/utils/env.js"            "$DST/src/utils/env.js"            && echo "✓ env.js (T6 — Supabase config centralisée)"
+cp "$SRC/src/utils/pinHash.js"        "$DST/src/utils/pinHash.js"        && echo "✓ pinHash.js (T2 — SHA-256 PIN)"
 
 # Store slices (modifiés)
 mkdir -p "$DST/src/store/slices"
@@ -108,6 +110,21 @@ if [ -d "$IOS_TARGET" ]; then
 else
   echo "⚠️  Dossier ios/PatriMoiApp non trouvé — copie manuelle requise"
 fi
+
+# ── Vérification post-copie : JS/JSX sync SRC → DST ─────────────────────────
+# Utilise rsync --dry-run (macOS compatible — BSD diff ne supporte pas --exclude)
+echo ""
+rsync -n -rcv --exclude="*.ts" --exclude="*.tsx" --exclude=".DS_Store" "$SRC/src/" "$DST/src/" \
+  | grep -v "/$" | grep -v "^Transfer" | grep -v "^sent " | grep -v "^total size" \
+  | grep . \
+  > /tmp/_patrimoi_diff.txt
+if [ -s /tmp/_patrimoi_diff.txt ]; then
+  echo "❌ DÉSYNCHRONISATION src/ — fichiers SRC non reflétés dans DST :"
+  cat /tmp/_patrimoi_diff.txt
+  echo "(relance le script ou copie les fichiers manquants manuellement)"
+  exit 1
+fi
+echo "✓ src/ synchronisé (aucune dérive JS/JSX)"
 
 echo ""
 echo "Fait ! Lance Metro avec reset-cache :"
