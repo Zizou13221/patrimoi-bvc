@@ -115,6 +115,7 @@ const BVC_LIST = [
   'SOT - Sothema',
   'PRO - Promopharm',
   'AKT - Akdital',
+  'T2S - T2S Group Holding',
   // Transport & Tourisme
   'MSA - Marsa Maroc',
   'CTM - CTM',
