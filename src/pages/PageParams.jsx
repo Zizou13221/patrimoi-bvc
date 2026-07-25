@@ -8,8 +8,8 @@ import { Card, BtnSec, BtnPri, Toggle, TopBar, Input, PickerModal } from '../com
 import { isBiometricsAvailable, authenticateBiometric } from '../utils/biometrics';
 import { updateProfile } from '../utils/auth';
 import {
-  calcLiquide, calcBanque, calcCarnet, calcPEA, calcCT,
-  calcOr, calcImmo, calcTransport, totalPatrimoine,
+  calcLiquide, calcBanque, calcCarnet, calcPEA, calcPEACout, calcCT, calcCTCout,
+  calcOr, calcImmo, calcTransport, totalPatrimoine, totalCout,
 } from '../utils/calc';
 import { fmt } from '../utils/fmt';
 import { INIT } from '../constants/data';
@@ -17,12 +17,14 @@ import { INIT } from '../constants/data';
 const PREFS_KEY = '@patrimoi_prefs';
 
 export default function PageParams({ onSignOut, onObjectifChange, onTrackingStartChange, onNav }) {
-  const data     = usePatrimoineStore(s => s.data);
-  const user     = usePatrimoineStore(s => s.user);
-  const demoMode = usePatrimoineStore(s => s.demoMode);
-  const discret  = usePatrimoineStore(s => s.discret);
-  const onDiscretChange = usePatrimoineStore(s => s.setDiscret);
-  const objectif = usePatrimoineStore(s => s.objectif);
+  const data              = usePatrimoineStore(s => s.data);
+  const user              = usePatrimoineStore(s => s.user);
+  const demoMode          = usePatrimoineStore(s => s.demoMode);
+  const discret           = usePatrimoineStore(s => s.discret);
+  const onDiscretChange   = usePatrimoineStore(s => s.setDiscret);
+  const objectif          = usePatrimoineStore(s => s.objectif);
+  const history           = usePatrimoineStore(s => s.history);
+  const trackingStartDate = usePatrimoineStore(s => s.trackingStartDate);
   const [bio,            setBio]            = useState(false);
   const [rappels,        setRappels]        = useState(true);
   const [alertes,        setAlertes]        = useState(true);
@@ -360,109 +362,220 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     const d = data || INIT;
     setExportingPDF(true);
     try {
+      // ── Résolution module PDF ──────────────────────────────
       let RNHTMLtoPDF = null;
+      try { const { NativeModules } = require('react-native'); const m = NativeModules?.RNPDFExport; if (m && typeof m.convert === 'function') RNHTMLtoPDF = m; } catch {}
+      if (!RNHTMLtoPDF) { try { const { NativeModules } = require('react-native'); const m = NativeModules?.RNHTMLtoPDF || NativeModules?.HtmlToPdf; if (m && typeof m.convert === 'function') RNHTMLtoPDF = m; } catch {} }
+      if (!RNHTMLtoPDF) { try { const { TurboModuleRegistry } = require('react-native'); const m = TurboModuleRegistry?.get?.('RNPDFExport') || TurboModuleRegistry?.get?.('HtmlToPdf') || TurboModuleRegistry?.get?.('RNHTMLtoPDF'); if (m && typeof m.convert === 'function') RNHTMLtoPDF = m; } catch {} }
 
-      // Priorité 1 : module custom RNPDFExport (app target — fiable, pas de pod)
-      try {
-        const { NativeModules } = require('react-native');
-        const m = NativeModules?.RNPDFExport;
-        if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
-      } catch {}
-
-      // Priorité 2 : react-native-html-to-pdf si présent dans NativeModules
+      // Fallback texte
       if (!RNHTMLtoPDF) {
-        try {
-          const { NativeModules } = require('react-native');
-          const m = NativeModules?.RNHTMLtoPDF || NativeModules?.HtmlToPdf;
-          if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
-        } catch {}
-      }
-
-      // Priorité 3 : TurboModuleRegistry (bridgeless / New Arch)
-      if (!RNHTMLtoPDF) {
-        try {
-          const { TurboModuleRegistry } = require('react-native');
-          const m = TurboModuleRegistry?.get?.('RNPDFExport')
-                 || TurboModuleRegistry?.get?.('HtmlToPdf')
-                 || TurboModuleRegistry?.get?.('RNHTMLtoPDF');
-          if (m && typeof m.convert === 'function') RNHTMLtoPDF = m;
-        } catch {}
-      }
-
-      // Fallback : export texte formaté via Share natif (sans module PDF)
-      if (!RNHTMLtoPDF) {
-        const fmtTxt = (n) => n > 0 ? n.toLocaleString('fr-FR', { maximumFractionDigits:0 }) + ' DH' : '0 DH';
-        const sep = '─'.repeat(38);
+        const fmtT = (n) => n.toLocaleString('fr-FR', { maximumFractionDigits:0 }) + ' DH';
+        const sep  = '─'.repeat(38);
         const lines = [
           '📊 PatriMoi — Rapport Patrimoine',
           `Date : ${new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}`,
           sep,
-          `Argent Liquide & Devises  ${fmtTxt(calcLiquide(d.liquidites))}`,
-          `Argent en Banque          ${fmtTxt(calcBanque(d.banque))}`,
-          `Compte sur Carnet         ${fmtTxt(calcCarnet(d.carnet))}`,
-          `Compte PEA                ${fmtTxt(calcPEA(d.pea))}`,
-          `Compte-Titre              ${fmtTxt(calcCT(d.ct))}`,
-          `Or & Métaux Précieux      ${fmtTxt(calcOr(d.or, d.prixOr))}`,
-          `Immobilier & Terrains     ${fmtTxt(calcImmo(d.immobilier))}`,
-          `Biens de Transport        ${fmtTxt(calcTransport(d.transport))}`,
+          `Argent Liquide & Devises  ${fmtT(calcLiquide(d.liquidites))}`,
+          `Argent en Banque          ${fmtT(calcBanque(d.banque))}`,
+          `Compte sur Carnet         ${fmtT(calcCarnet(d.carnet))}`,
+          `Compte PEA                ${fmtT(calcPEA(d.pea))}`,
+          `Compte-Titre              ${fmtT(calcCT(d.ct))}`,
+          `Or & Métaux Précieux      ${fmtT(calcOr(d.or, d.prixOr))}`,
+          `Immobilier & Terrains     ${fmtT(calcImmo(d.immobilier))}`,
+          `Biens de Transport        ${fmtT(calcTransport(d.transport))}`,
           sep,
-          `TOTAL PATRIMOINE          ${fmtTxt(totalPatrimoine(d))}`,
-          '',
-          'Généré par PatriMoi v1.6',
+          `TOTAL PATRIMOINE          ${fmtT(totalPatrimoine(d))}`,
+          '', 'Généré par PatriMoi v1.6',
         ].join('\n');
         await Share.share({ message: lines, title: 'PatriMoi — Rapport Patrimoine' });
         setExportingPDF(false);
         return;
       }
-      const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+
+      // ── Helpers ────────────────────────────────────────────
+      const fmtPDF  = (n) => { if (!n && n !== 0) return '—'; return n.toLocaleString('fr-FR', { maximumFractionDigits:0 }) + ' DH'; };
+      const fmtPct  = (v) => v > 0 ? '+' + v.toFixed(1) + '%' : v.toFixed(1) + '%';
+      const fmtDiff = (v) => v > 0 ? '+' + Math.round(v).toLocaleString('fr-FR') + ' DH' : Math.round(v).toLocaleString('fr-FR') + ' DH';
+      const fmtD    = (iso) => { if (!iso) return ''; const [yy,mm,dd] = iso.split('-'); return `${dd}/${mm}/${yy}`; };
+      const colPos  = '#1E7A4A';
+      const colNeg  = '#C0392B';
+      const colNeu  = '#888';
+      const diffColor = (v) => v > 0 ? colPos : v < 0 ? colNeg : colNeu;
+
+      const date  = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
       const total = totalPatrimoine(d);
+      const today = new Date().toISOString().slice(0, 10);
 
+      // ── Historique patrimoine ──────────────────────────────
+      const sortedHist = [...(history || [])].sort((a, b) => a.date.localeCompare(b.date));
+      const firstEntry = sortedHist[0];
+
+      // Mois précédent : dernier snapshot du mois M-1
+      const prevMonthDate = new Date(); prevMonthDate.setDate(1); prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+      const prevMonthStr  = prevMonthDate.toISOString().slice(0, 7); // YYYY-MM
+      const prevMonthSnaps = sortedHist.filter(h => h.date.startsWith(prevMonthStr));
+      const prevMonthEntry = prevMonthSnaps[prevMonthSnaps.length - 1] || null;
+
+      // Début du mois courant
+      const curMonthStr  = today.slice(0, 7);
+      const curMonthSnaps = sortedHist.filter(h => h.date.startsWith(curMonthStr));
+      const startOfMonthEntry = curMonthSnaps[0] || prevMonthEntry;
+
+      const varMois      = prevMonthEntry ? total - prevMonthEntry.val : null;
+      const varMoisPct   = prevMonthEntry && prevMonthEntry.val > 0 ? (varMois / prevMonthEntry.val * 100) : null;
+      const varCreation  = firstEntry ? total - firstEntry.val : null;
+      const varCreaPct   = firstEntry && firstEntry.val > 0 ? (varCreation / firstEntry.val * 100) : null;
+      const dateCreation = firstEntry ? fmtD(firstEntry.date) : null;
+
+      // ── Sparkline SVG 12 derniers mois ────────────────────
+      const sparkData = sortedHist.slice(-13); // 13 points → 12 intervalles
+      const sparkHtml = (() => {
+        if (sparkData.length < 2) return '';
+        const W = 480, H = 70, pad = 4;
+        const vals = sparkData.map(h => h.val);
+        const minV = Math.min(...vals), maxV = Math.max(...vals);
+        const range = maxV - minV || 1;
+        const pts = sparkData.map((h, i) => {
+          const x = pad + (W - 2 * pad) * i / (sparkData.length - 1);
+          const y = H - pad - (H - 2 * pad) * (h.val - minV) / range;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        const polyline = pts.join(' ');
+        // Fill area under curve
+        const fillPts = `${pad},${H - pad} ` + polyline + ` ${(W - pad).toFixed(1)},${H - pad}`;
+        // Tick labels : premier et dernier mois
+        const labelFirst = sparkData[0].date.slice(0, 7).split('-').reverse().join('/');
+        const labelLast  = sparkData[sparkData.length - 1].date.slice(0, 7).split('-').reverse().join('/');
+        return `
+        <svg viewBox="0 0 ${W} ${H + 18}" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:90px;">
+          <defs>
+            <linearGradient id="grdSpark" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#1E7A4A" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#1E7A4A" stop-opacity="0.02"/>
+            </linearGradient>
+          </defs>
+          <polygon points="${fillPts}" fill="url(#grdSpark)"/>
+          <polyline points="${polyline}" fill="none" stroke="#1E7A4A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="${pts[pts.length-1].split(',')[0]}" cy="${pts[pts.length-1].split(',')[1]}" r="4" fill="#1E7A4A"/>
+          <text x="${pad}" y="${H + 14}" font-size="9" fill="#aaa">${labelFirst}</text>
+          <text x="${W - pad}" y="${H + 14}" font-size="9" fill="#aaa" text-anchor="end">${labelLast}</text>
+          <text x="${W/2}" y="${H + 14}" font-size="9" fill="#aaa" text-anchor="middle">${fmtPDF(maxV)} max</text>
+        </svg>`;
+      })();
+
+      // ── Répartition actifs ─────────────────────────────────
       const cats = [
-        { label:'Argent Liquide & Devises', val: calcLiquide(d.liquidites),   color:'#1E7A4A' },
-        { label:'Argent en Banque',          val: calcBanque(d.banque),         color:'#1A3A7A' },
-        { label:'Compte sur Carnet',         val: calcCarnet(d.carnet),         color:'#0E6B6B' },
-        { label:'Compte PEA',                val: calcPEA(d.pea),               color:'#1E5C3A' },
-        { label:'Compte-Titre',              val: calcCT(d.ct),                 color:'#1A3A7A' },
-        { label:'Or & Métaux Précieux',       val: calcOr(d.or, d.prixOr),      color:'#B8860B' },
-        { label:'Immobilier & Terrains',     val: calcImmo(d.immobilier),       color:'#7A3A00' },
-        { label:'Biens de Transport',        val: calcTransport(d.transport),   color:'#3A3A5A' },
-      ];
+        { label:'Liquidités & Devises', val: calcLiquide(d.liquidites),  icon:'💵', color:'#1E7A4A' },
+        { label:'Argent en Banque',      val: calcBanque(d.banque),        icon:'🏦', color:'#1A4A9A' },
+        { label:'Compte sur Carnet',     val: calcCarnet(d.carnet),        icon:'📒', color:'#0E7A6B' },
+        { label:'Compte PEA',            val: calcPEA(d.pea),              icon:'📈', color:'#2E7A2A' },
+        { label:'Compte-Titre',          val: calcCT(d.ct),                icon:'📊', color:'#4A3A9A' },
+        { label:'Or & Métaux Précieux',  val: calcOr(d.or, d.prixOr),     icon:'🥇', color:'#B8860B' },
+        { label:'Immobilier & Terrains', val: calcImmo(d.immobilier),      icon:'🏠', color:'#8B4513' },
+        { label:'Biens de Transport',    val: calcTransport(d.transport),  icon:'🚗', color:'#4A4A6A' },
+      ].filter(c => c.val > 0);
 
-      const fmtPDF = (n) => {
-        if (n === 0) return '0 DH';
-        return n.toLocaleString('fr-FR', { maximumFractionDigits:0 }) + ' DH';
-      };
+      // Donut SVG
+      const donutHtml = (() => {
+        if (total === 0 || cats.length === 0) return '';
+        const cx = 90, cy = 90, R = 70, r = 42;
+        let angle = -Math.PI / 2;
+        const slices = cats.map(c => {
+          const pct   = c.val / total;
+          const sweep = pct * 2 * Math.PI;
+          const x1    = cx + R * Math.cos(angle);
+          const y1    = cy + R * Math.sin(angle);
+          angle      += sweep;
+          const x2    = cx + R * Math.cos(angle);
+          const y2    = cy + R * Math.sin(angle);
+          const xi1   = cx + r * Math.cos(angle - sweep);
+          const yi1   = cy + r * Math.sin(angle - sweep);
+          const xi2   = cx + r * Math.cos(angle);
+          const yi2   = cy + r * Math.sin(angle);
+          const lg    = sweep > Math.PI ? 1 : 0;
+          return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${lg} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${xi2.toFixed(1)},${yi2.toFixed(1)} A${r},${r} 0 ${lg} 0 ${xi1.toFixed(1)},${yi1.toFixed(1)} Z" fill="${c.color}" opacity="0.9"/>`;
+        }).join('');
+        return `<svg viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" style="width:180px;height:180px;flex-shrink:0;">${slices}<text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="10" fill="#555">Total</text><text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="11" font-weight="700" fill="#222">${(total/1000).toFixed(0)}k</text></svg>`;
+      })();
 
       const rows = cats.map(c => {
-        const pct = total > 0 ? (c.val / total * 100).toFixed(1) : '0.0';
-        const barW = total > 0 ? Math.round(c.val / total * 200) : 0;
-        return `
-          <tr>
-            <td style="padding:10px 14px; color:#222; font-size:13px; border-bottom:1px solid #eee;">${c.label}</td>
-            <td style="padding:10px 14px; text-align:right; font-weight:700; font-size:13px; color:${c.val > 0 ? c.color : '#bbb'}; border-bottom:1px solid #eee; white-space:nowrap;">${fmtPDF(c.val)}</td>
-            <td style="padding:10px 14px; text-align:right; color:#888; font-size:12px; border-bottom:1px solid #eee;">${pct}%</td>
-            <td style="padding:10px 14px; border-bottom:1px solid #eee; vertical-align:middle;">
-              <div style="background:#eee; border-radius:4px; height:6px; width:200px;">
-                <div style="background:${c.color}; border-radius:4px; height:6px; width:${barW}px;"></div>
-              </div>
-            </td>
-          </tr>`;
+        const pct  = total > 0 ? (c.val / total * 100).toFixed(1) : '0.0';
+        const barW = total > 0 ? Math.max(2, Math.round(c.val / total * 160)) : 0;
+        return `<tr>
+          <td style="padding:9px 12px; font-size:12px; color:#333; border-bottom:1px solid #f3f3f3;">${c.icon} ${c.label}</td>
+          <td style="padding:9px 12px; text-align:right; font-weight:700; font-size:12px; color:${c.color}; border-bottom:1px solid #f3f3f3; white-space:nowrap;">${fmtPDF(c.val)}</td>
+          <td style="padding:9px 12px; text-align:right; color:#888; font-size:11px; border-bottom:1px solid #f3f3f3;">${pct}%</td>
+          <td style="padding:9px 12px; border-bottom:1px solid #f3f3f3; vertical-align:middle; min-width:170px;">
+            <div style="background:#eee; border-radius:4px; height:6px;">
+              <div style="background:${c.color}; border-radius:4px; height:6px; width:${barW}px;"></div>
+            </div>
+          </td>
+        </tr>`;
       }).join('');
 
+      // ── Objectif ───────────────────────────────────────────
+      const objPct     = objectif && objectif.montant > 0 ? Math.min(100, total / objectif.montant * 100) : 0;
       const objetifHtml = objectif ? `
-        <div style="background:#F0FBF4; border:1px solid #1E7A4A; border-radius:10px; padding:16px; margin-bottom:20px;">
-          <div style="font-size:13px; color:#555; margin-bottom:4px;">Objectif patrimonial — ${objectif.dateTarget}</div>
-          <div style="font-size:18px; font-weight:700; color:#1E7A4A;">${fmtPDF(objectif.montant)}</div>
-          <div style="background:#ddd; border-radius:4px; height:8px; margin-top:10px;">
-            <div style="background:#1E7A4A; border-radius:4px; height:8px; width:${Math.min(100, total/objectif.montant*100).toFixed(1)}%;"></div>
+        <div style="background:#F0FBF4; border:1.5px solid #1E7A4A; border-radius:12px; padding:16px 20px; margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <div style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px;">Objectif patrimonial</div>
+              <div style="font-size:16px; font-weight:700; color:#1E7A4A;">${fmtPDF(objectif.montant)} <span style="font-size:11px; font-weight:400; color:#888;">en ${objectif.dateTarget}</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:22px; font-weight:800; color:#1E7A4A;">${objPct.toFixed(1)}%</div>
+              <div style="font-size:10px; color:#888;">atteint</div>
+            </div>
           </div>
-          <div style="font-size:11px; color:#888; margin-top:6px;">${(total/objectif.montant*100).toFixed(1)}% atteint — ${fmtPDF(total)} / ${fmtPDF(objectif.montant)}</div>
+          <div style="background:#ddd; border-radius:6px; height:10px;">
+            <div style="background:linear-gradient(90deg,#1E7A4A,#27AE60); border-radius:6px; height:10px; width:${objPct.toFixed(1)}%;"></div>
+          </div>
+          <div style="font-size:10px; color:#888; margin-top:6px;">Il manque ${fmtPDF(Math.max(0, objectif.montant - total))} pour atteindre l'objectif</div>
         </div>` : '';
 
+      // ── Performance actifs financiers ──────────────────────
+      const peaVal  = calcPEA(d.pea);
+      const peaCout = calcPEACout(d.pea);
+      const peaPL   = peaVal - peaCout;
+      const peaPct  = peaCout > 0 ? (peaPL / peaCout * 100) : null;
+
+      const ctVal   = calcCT(d.ct);
+      const ctCout  = calcCTCout(d.ct);
+      const ctPL    = ctVal - ctCout;
+      const ctPct   = ctCout > 0 ? (ctPL / ctCout * 100) : null;
+
+      const orVal   = calcOr(d.or, d.prixOr);
+
+      // Rendement global actifs financiers (PEA + CT)
+      const totalActifsCout = peaCout + ctCout;
+      const totalActifsVal  = peaVal + ctVal;
+      const totalActifsPL   = totalActifsVal - totalActifsCout;
+      const totalActifsPct  = totalActifsCout > 0 ? (totalActifsPL / totalActifsCout * 100) : null;
+
+      // Rendement actifs depuis début du mois courant (via history)
+      const moisStart   = startOfMonthEntry ? startOfMonthEntry.val : null;
+      const rendMois    = moisStart ? total - moisStart : null;
+      const rendMoisPct = moisStart && moisStart > 0 ? (rendMois / moisStart * 100) : null;
+
+      const actifsPerfHtml = (peaCout > 0 || ctCout > 0) ? `
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px; font-weight:700; color:#222; margin-bottom:12px; padding-bottom:6px; border-bottom:1.5px solid #eee;">Performance des actifs financiers</div>
+        ${totalActifsCout > 0 ? `
+        <div style="background:#F8F9FA; border-radius:10px; padding:14px 16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+          <div><div style="font-size:10px; color:#888; margin-bottom:3px;">TOTAL PEA + CT</div><div style="font-size:13px; font-weight:700; color:#222;">Investi : ${fmtPDF(totalActifsCout)}</div><div style="font-size:11px; color:#555; margin-top:2px;">Valeur actuelle : ${fmtPDF(totalActifsVal)}</div></div>
+          <div style="text-align:right;"><div style="font-size:20px; font-weight:800; color:${diffColor(totalActifsPL)};">${totalActifsPct !== null ? fmtPct(totalActifsPct) : '—'}</div><div style="font-size:11px; color:${diffColor(totalActifsPL)};">${fmtDiff(totalActifsPL)}</div></div>
+        </div>` : ''}
+        <table style="width:100%; border-collapse:collapse; border:1px solid #eee; border-radius:8px; overflow:hidden;">
+          ${peaCout > 0 ? `<tr style="background:#FAFFF8;"><td style="padding:10px 14px;"><div style="font-size:11px; font-weight:600; color:#2E7A2A;">📈 PEA</div><div style="font-size:10px; color:#888; margin-top:2px;">Coût : ${fmtPDF(peaCout)} · Valeur : ${fmtPDF(peaVal)}</div></td><td style="padding:10px 14px; text-align:right;"><div style="font-size:15px; font-weight:800; color:${diffColor(peaPL)};">${peaPct !== null ? fmtPct(peaPct) : '—'}</div><div style="font-size:10px; color:${diffColor(peaPL)};">${fmtDiff(peaPL)}</div></td></tr>` : ''}
+          ${ctCout > 0 ? `<tr style="background:#FAFAF8; border-top:1px solid #f0f0f0;"><td style="padding:10px 14px;"><div style="font-size:11px; font-weight:600; color:#4A3A9A;">📊 Compte-Titre</div><div style="font-size:10px; color:#888; margin-top:2px;">Coût : ${fmtPDF(ctCout)} · Valeur : ${fmtPDF(ctVal)}</div></td><td style="padding:10px 14px; text-align:right;"><div style="font-size:15px; font-weight:800; color:${diffColor(ctPL)};">${ctPct !== null ? fmtPct(ctPct) : '—'}</div><div style="font-size:10px; color:${diffColor(ctPL)};">${fmtDiff(ctPL)}</div></td></tr>` : ''}
+          ${orVal > 0 ? `<tr style="border-top:1px solid #f0f0f0;"><td style="padding:10px 14px;"><div style="font-size:11px; font-weight:600; color:#B8860B;">🥇 Or & Métaux</div><div style="font-size:10px; color:#888; margin-top:2px;">Valorisation actuelle</div></td><td style="padding:10px 14px; text-align:right;"><div style="font-size:15px; font-weight:700; color:#B8860B;">${fmtPDF(orVal)}</div></td></tr>` : ''}
+        </table>
+      </div>` : '';
+
       // ── Budget — filtré par plage PDF ──────────────────────
-      const fmtD = (iso) => { if (!iso) return ''; const [yy,mm,dd] = iso.split('-'); return `${dd}/${mm}/${yy}`; };
-      const opsAll = (d.operations || []);
-      const opsFil = opsAll.filter(op => {
+      const opsAll   = (d.operations || []);
+      const opsFil   = opsAll.filter(op => {
         if (!pdfFrom || !pdfTo) return true;
         const opDate = (op.date || '').slice(0, 10);
         return opDate >= pdfFrom && opDate <= pdfTo;
@@ -473,66 +586,115 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
       const totalDep     = depenses.reduce((s, o) => s + (o.montant || 0), 0);
       const totalRev     = revenuOps.reduce((s, o) => s + (o.montant || 0), 0);
       const totalEpargne = epargneOps.reduce((s, o) => s + (o.montant || 0), 0);
+      const balance      = totalRev - totalDep + totalEpargne;
       const tauxEpargne  = (totalRev + totalEpargne) > 0
-        ? (totalEpargne / (totalRev + totalEpargne) * 100).toFixed(1)
+        ? (totalEpargne / (totalRev + totalEpargne) * 100)
         : null;
+
+      // Dépenses mois précédent (comparaison)
+      const opsPrevMois = opsAll.filter(op => {
+        const opDate = (op.date || '').slice(0, 7);
+        return opDate === prevMonthStr && op.type === 'depense';
+      });
+      const totalDepPrev = opsPrevMois.reduce((s, o) => s + (o.montant || 0), 0);
+      const varDepMois    = totalDepPrev > 0 ? totalDep - totalDepPrev : null;
+      const varDepMoisPct = totalDepPrev > 0 ? (varDepMois / totalDepPrev * 100) : null;
+
+      // Budget cibles vs réalisé
+      const budgetCibles = d.budgetCibles || {};
+      const totalBudgetCible = Object.values(budgetCibles).reduce((s, v) => s + (v || 0), 0);
+      const budgetRestant    = totalBudgetCible > 0 ? totalBudgetCible - totalDep : null;
+      const budgetPct        = totalBudgetCible > 0 ? Math.min(150, totalDep / totalBudgetCible * 100) : null;
+
+      // Dépenses par catégorie
       const byCat = {};
       depenses.forEach(o => { byCat[o.categorie || 'autre'] = (byCat[o.categorie || 'autre'] || 0) + (o.montant || 0); });
       const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
       const catIcons   = { alimentation:'🛒', transport:'🚗', logement:'🏠', loisirs:'🎭', sante:'💊', education:'📚', dividende:'💰', autre:'💼' };
+
       const periodLabel = pdfFrom && pdfTo
-        ? `Du ${fmtD(pdfFrom)} au ${fmtD(pdfTo)}`
-        : opsFil.length > 0 ? 'Toutes les opérations' : '';
+        ? `Période : Du ${fmtD(pdfFrom)} au ${fmtD(pdfTo)}`
+        : opsFil.length > 0 ? 'Toutes les opérations enregistrées' : '';
+
+      // Graphique dépenses catégories (barres horizontales)
+      const catBarsHtml = catEntries.length > 0 ? `
+        <div style="margin-top:14px;">
+          <div style="font-size:10px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Dépenses par catégorie</div>
+          ${catEntries.map(([cat, montant]) => {
+            const pct      = totalDep > 0 ? montant / totalDep * 100 : 0;
+            const cible    = budgetCibles[cat] || 0;
+            const vsObjPct = cible > 0 ? (montant / cible * 100) : null;
+            const barColor = vsObjPct !== null ? (vsObjPct > 100 ? '#E74C3C' : vsObjPct > 85 ? '#F39C12' : '#27AE60') : '#E74C3C';
+            return `
+            <div style="margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+                <span style="font-size:11px; color:#333;">${catIcons[cat] || '💼'} ${cat}</span>
+                <span style="font-size:11px; font-weight:700; color:${barColor};">${fmtPDF(montant)}${cible > 0 ? ` <span style="font-size:9px; color:#888;">/ ${fmtPDF(cible)}</span>` : ''}</span>
+              </div>
+              <div style="background:#eee; border-radius:4px; height:7px;">
+                <div style="background:${barColor}; border-radius:4px; height:7px; width:${pct.toFixed(1)}%;"></div>
+              </div>
+              ${vsObjPct !== null ? `<div style="font-size:9px; color:${barColor}; margin-top:2px; text-align:right;">${vsObjPct.toFixed(0)}% de l'objectif</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>` : '';
 
       const budgetHtml = opsFil.length === 0 ? '' : `
-  <div style="padding:0 36px 28px;">
-    <div style="border-top:2px solid #eee; padding-top:24px; margin-bottom:16px;">
-      <div style="font-size:15px; font-weight:700; color:#222;">Budget & Revenus</div>
-      ${periodLabel ? `<div style="font-size:11px; color:#888; margin-top:2px;">${periodLabel}</div>` : ''}
-    </div>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
-      <tr>
-        <td style="width:33%; padding-right:6px;">
-          <div style="background:#FFF0F0; border-radius:8px; padding:12px; text-align:center;">
-            <div style="font-size:10px; color:#888; margin-bottom:4px;">Dépenses</div>
-            <div style="font-size:16px; font-weight:700; color:#E74C3C;">${fmtPDF(totalDep)}</div>
+      <!-- Section Budget -->
+      <div style="background:#FAFAFA; border-radius:14px; padding:20px; margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <div style="font-size:14px; font-weight:700; color:#222;">Budget & Revenus</div>
+            ${periodLabel ? `<div style="font-size:10px; color:#888; margin-top:2px;">${periodLabel}</div>` : ''}
           </div>
-        </td>
-        <td style="width:33%; padding:0 3px;">
-          <div style="background:#F0FBF4; border-radius:8px; padding:12px; text-align:center;">
-            <div style="font-size:10px; color:#888; margin-bottom:4px;">Revenus</div>
-            <div style="font-size:16px; font-weight:700; color:#1E7A4A;">${fmtPDF(totalRev)}</div>
-          </div>
-        </td>
-        <td style="width:33%; padding-left:6px;">
-          <div style="background:#EFF6FF; border-radius:8px; padding:12px; text-align:center;">
-            <div style="font-size:10px; color:#888; margin-bottom:4px;">Épargne investie</div>
-            <div style="font-size:16px; font-weight:700; color:#1A3A7A;">${fmtPDF(totalEpargne)}</div>
-          </div>
-        </td>
-      </tr>
-    </table>
-    ${tauxEpargne ? `<div style="background:#F0FBF4; border-radius:8px; padding:10px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:12px; color:#555;">Taux d'épargne</span><span style="font-size:15px; font-weight:700; color:#1E7A4A;">${tauxEpargne}%</span></div>` : ''}
-    ${catEntries.length > 0 ? `
-    <div style="font-size:11px; font-weight:600; color:#555; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Dépenses par catégorie</div>
-    <table style="width:100%; border-collapse:collapse; border:1px solid #eee; border-radius:8px; overflow:hidden;">
-      ${catEntries.map(([cat, montant]) => {
-        const pct  = totalDep > 0 ? (montant / totalDep * 100).toFixed(1) : '0';
-        const barW = totalDep > 0 ? Math.round(montant / totalDep * 100) : 0;
-        return `<tr>
-          <td style="padding:8px 12px; font-size:11px; color:#333; border-bottom:1px solid #f5f5f5;">${catIcons[cat] || '💼'} ${cat}</td>
-          <td style="padding:8px 12px; text-align:right; font-weight:600; font-size:11px; color:#E74C3C; white-space:nowrap; border-bottom:1px solid #f5f5f5;">${fmtPDF(montant)}</td>
-          <td style="padding:8px 12px; text-align:right; color:#888; font-size:10px; border-bottom:1px solid #f5f5f5;">${pct}%</td>
-          <td style="padding:8px 12px; border-bottom:1px solid #f5f5f5; vertical-align:middle;">
-            <div style="background:#eee; border-radius:3px; height:5px; width:100px;">
-              <div style="background:#E74C3C; border-radius:3px; height:5px; width:${barW}px;"></div>
-            </div>
-          </td>
-        </tr>`;
-      }).join('')}
-    </table>` : ''}
-  </div>`;
+          ${varDepMoisPct !== null ? `<div style="background:${varDepMois > 0 ? '#FFF0F0' : '#F0FBF4'}; border-radius:8px; padding:6px 12px; text-align:center;"><div style="font-size:9px; color:#888;">vs mois préc.</div><div style="font-size:14px; font-weight:700; color:${diffColor(-varDepMois)};">${fmtPct(-varDepMoisPct)}</div></div>` : ''}
+        </div>
 
+        <!-- KPI Cards -->
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <div style="flex:1; background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #f0f0f0;">
+            <div style="font-size:9px; color:#888; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px;">💚 Revenus</div>
+            <div style="font-size:15px; font-weight:800; color:#1E7A4A;">${fmtPDF(totalRev)}</div>
+          </div>
+          <div style="flex:1; background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #f0f0f0;">
+            <div style="font-size:9px; color:#888; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px;">❤️ Dépenses</div>
+            <div style="font-size:15px; font-weight:800; color:#C0392B;">${fmtPDF(totalDep)}</div>
+            ${totalDepPrev > 0 ? `<div style="font-size:9px; color:${diffColor(-varDepMois)}; margin-top:2px;">${fmtDiff(varDepMois)} vs M-1</div>` : ''}
+          </div>
+          <div style="flex:1; background:white; border-radius:10px; padding:12px; text-align:center; border:1px solid #f0f0f0;">
+            <div style="font-size:9px; color:#888; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px;">💙 Épargne</div>
+            <div style="font-size:15px; font-weight:800; color:#1A4A9A;">${fmtPDF(totalEpargne)}</div>
+            ${tauxEpargne !== null ? `<div style="font-size:9px; color:#1A4A9A; margin-top:2px;">${tauxEpargne.toFixed(1)}% du revenu</div>` : ''}
+          </div>
+        </div>
+
+        <!-- Balance -->
+        <div style="background:${balance >= 0 ? '#F0FBF4' : '#FFF0F0'}; border-radius:10px; padding:12px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:11px; color:#555; font-weight:600;">Balance nette (Revenus − Dépenses + Épargne)</div>
+          <div style="font-size:16px; font-weight:800; color:${balance >= 0 ? '#1E7A4A' : '#C0392B'};">${balance >= 0 ? '+' : ''}${fmtPDF(Math.abs(balance))}</div>
+        </div>
+
+        <!-- Budget vs Cible -->
+        ${totalBudgetCible > 0 ? `
+        <div style="background:white; border-radius:10px; padding:12px 16px; margin-bottom:14px; border:1px solid #f0f0f0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:11px; font-weight:600; color:#333;">Budget dépenses (objectif mensuel)</div>
+            <div style="font-size:12px; font-weight:700; color:${budgetPct > 100 ? '#C0392B' : '#F39C12'};">${budgetPct.toFixed(0)}% utilisé</div>
+          </div>
+          <div style="background:#eee; border-radius:6px; height:9px; margin-bottom:8px;">
+            <div style="background:${budgetPct > 100 ? '#C0392B' : budgetPct > 85 ? '#F39C12' : '#27AE60'}; border-radius:6px; height:9px; width:${Math.min(100, budgetPct).toFixed(1)}%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:#888;">
+            <span>Réalisé : ${fmtPDF(totalDep)}</span>
+            <span>Cible : ${fmtPDF(totalBudgetCible)}</span>
+            <span style="color:${budgetRestant >= 0 ? '#27AE60' : '#C0392B'}; font-weight:600;">${budgetRestant >= 0 ? 'Reste : ' + fmtPDF(budgetRestant) : 'Dépassement : ' + fmtPDF(Math.abs(budgetRestant))}</span>
+          </div>
+        </div>` : ''}
+
+        ${catBarsHtml}
+      </div>`;
+
+      // ── HTML complet ───────────────────────────────────────
       const html = `
 <!DOCTYPE html>
 <html>
@@ -540,56 +702,86 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
 <meta charset="UTF-8"/>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background:#fff; color:#222; }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; background:#F8FAFA; color:#222; }
+  .page { max-width:680px; margin:0 auto; background:#fff; }
 </style>
 </head>
 <body>
-  <!-- En-tête -->
-  <div style="background:linear-gradient(135deg,#1E7A4A,#155C38); padding:32px 36px 28px; color:white;">
-    <div style="font-size:28px; font-weight:800; letter-spacing:-0.5px;">PatriMoi</div>
-    <div style="font-size:13px; opacity:0.8; margin-top:4px;">Votre Patrimoine. Votre Avenir.</div>
-    <div style="margin-top:24px; font-size:13px; opacity:0.75;">Rapport du ${date}</div>
-    ${nomComplet ? `<div style="font-size:13px; opacity:0.75; margin-top:2px;">${nomComplet}</div>` : ''}
-  </div>
+<div class="page">
 
-  <!-- Total -->
-  <div style="padding:28px 36px 20px;">
-    <div style="font-size:12px; color:#888; text-transform:uppercase; letter-spacing:1px;">Patrimoine Total</div>
-    <div style="font-size:38px; font-weight:800; color:#1E7A4A; margin-top:6px;">${fmtPDF(total)}</div>
-  </div>
-
-  <div style="padding:0 36px 20px;">
-    ${objetifHtml}
-
-    <!-- Tableau -->
-    <table style="width:100%; border-collapse:collapse; border-radius:10px; overflow:hidden; border:1px solid #eee;">
-      <thead>
-        <tr style="background:#1E7A4A;">
-          <th style="padding:10px 14px; text-align:left; color:white; font-size:12px; font-weight:600;">Catégorie</th>
-          <th style="padding:10px 14px; text-align:right; color:white; font-size:12px; font-weight:600;">Valeur</th>
-          <th style="padding:10px 14px; text-align:right; color:white; font-size:12px; font-weight:600;">%</th>
-          <th style="padding:10px 14px; color:white; font-size:12px; font-weight:600;">Répartition</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr style="background:#F0FBF4;">
-          <td style="padding:12px 14px; font-weight:800; font-size:14px; color:#1E7A4A;">TOTAL</td>
-          <td style="padding:12px 14px; text-align:right; font-weight:800; font-size:14px; color:#1E7A4A;" colspan="3">${fmtPDF(total)}</td>
-        </tr>
-      </tfoot>
-    </table>
-
-  </div>
-
-  ${budgetHtml}
-
-  <!-- Pied de page -->
-  <div style="padding:0 36px 28px;">
-    <div style="padding-top:16px; border-top:1px solid #eee; font-size:11px; color:#aaa; text-align:center;">
-      Document généré par PatriMoi v1.6 · ${date}
+  <!-- ── EN-TÊTE ── -->
+  <div style="background:linear-gradient(135deg,#0F4B26 0%,#1E7A4A 55%,#27AE60 100%); padding:36px 36px 30px; color:white; position:relative; overflow:hidden;">
+    <div style="position:absolute; right:-30px; top:-30px; width:180px; height:180px; border-radius:50%; background:rgba(255,255,255,0.05);"></div>
+    <div style="position:absolute; right:20px; bottom:-40px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.04);"></div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; position:relative;">
+      <div>
+        <div style="font-size:26px; font-weight:800; letter-spacing:-0.5px;">PatriMoi</div>
+        <div style="font-size:11px; opacity:0.7; margin-top:3px; letter-spacing:0.5px;">VOTRE PATRIMOINE · VOTRE AVENIR</div>
+      </div>
+      <div style="text-align:right; font-size:11px; opacity:0.75; line-height:1.6;">
+        <div>${date}</div>
+        ${nomComplet ? `<div style="font-weight:600;">${nomComplet}</div>` : ''}
+      </div>
+    </div>
+    <div style="margin-top:28px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.2);">
+      <div style="font-size:10px; opacity:0.7; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Patrimoine Total</div>
+      <div style="font-size:42px; font-weight:800; letter-spacing:-1px;">${fmtPDF(total)}</div>
+      <div style="display:flex; gap:20px; margin-top:12px; flex-wrap:wrap;">
+        ${varMoisPct !== null ? `<div style="background:rgba(255,255,255,0.15); border-radius:8px; padding:8px 14px;"><div style="font-size:9px; opacity:0.75; margin-bottom:3px;">vs mois précédent</div><div style="font-size:15px; font-weight:700;">${fmtPct(varMoisPct)}</div><div style="font-size:10px; opacity:0.8;">${fmtDiff(varMois)}</div></div>` : ''}
+        ${varCreaPct !== null ? `<div style="background:rgba(255,255,255,0.15); border-radius:8px; padding:8px 14px;"><div style="font-size:9px; opacity:0.75; margin-bottom:3px;">depuis création${dateCreation ? ' (' + dateCreation + ')' : ''}</div><div style="font-size:15px; font-weight:700;">${fmtPct(varCreaPct)}</div><div style="font-size:10px; opacity:0.8;">${fmtDiff(varCreation)}</div></div>` : ''}
+        ${rendMoisPct !== null ? `<div style="background:rgba(255,255,255,0.15); border-radius:8px; padding:8px 14px;"><div style="font-size:9px; opacity:0.75; margin-bottom:3px;">variation ce mois</div><div style="font-size:15px; font-weight:700;">${fmtPct(rendMoisPct)}</div><div style="font-size:10px; opacity:0.8;">${fmtDiff(rendMois)}</div></div>` : ''}
+      </div>
     </div>
   </div>
+
+  <!-- ── CORPS ── -->
+  <div style="padding:24px 28px;">
+
+    <!-- Graphique évolution -->
+    ${sparkHtml ? `
+    <div style="background:#F8FAFA; border-radius:12px; padding:16px 20px; margin-bottom:24px;">
+      <div style="font-size:12px; font-weight:600; color:#555; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Évolution du patrimoine</span>
+        <span style="font-size:10px; font-weight:400; color:#aaa;">${sparkData.length} mois</span>
+      </div>
+      ${sparkHtml}
+    </div>` : ''}
+
+    <!-- Objectif -->
+    ${objetifHtml}
+
+    <!-- Répartition actifs -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:13px; font-weight:700; color:#222; margin-bottom:14px; padding-bottom:6px; border-bottom:1.5px solid #eee;">Répartition du patrimoine</div>
+      <div style="display:flex; gap:16px; align-items:flex-start;">
+        ${donutHtml}
+        <div style="flex:1;">
+          <table style="width:100%; border-collapse:collapse; border-radius:10px; overflow:hidden; border:1px solid #eee;">
+            <thead><tr style="background:#1E7A4A;"><th style="padding:8px 12px; text-align:left; color:white; font-size:11px; font-weight:600;">Catégorie</th><th style="padding:8px 12px; text-align:right; color:white; font-size:11px;">Valeur</th><th style="padding:8px 12px; text-align:right; color:white; font-size:11px;">%</th></tr></thead>
+            <tbody>${cats.map(c => {
+              const pct = total > 0 ? (c.val / total * 100).toFixed(1) : '0.0';
+              return `<tr><td style="padding:8px 12px; font-size:11px; color:#333; border-bottom:1px solid #f3f3f3;">${c.icon} ${c.label}</td><td style="padding:8px 12px; text-align:right; font-weight:700; font-size:11px; color:${c.color}; border-bottom:1px solid #f3f3f3; white-space:nowrap;">${fmtPDF(c.val)}</td><td style="padding:8px 12px; text-align:right; color:#888; font-size:10px; border-bottom:1px solid #f3f3f3;">${pct}%</td></tr>`;
+            }).join('')}</tbody>
+            <tfoot><tr style="background:#F0FBF4;"><td style="padding:9px 12px; font-weight:800; font-size:12px; color:#1E7A4A;" colspan="2">TOTAL</td><td style="padding:9px 12px; text-align:right; font-weight:800; font-size:12px; color:#1E7A4A;">${fmtPDF(total)}</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance actifs -->
+    ${actifsPerfHtml}
+
+    <!-- Budget & Revenus -->
+    ${budgetHtml}
+
+    <!-- Pied de page -->
+    <div style="padding-top:20px; border-top:1.5px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:10px; color:#bbb;">Document confidentiel — usage personnel</div>
+      <div style="font-size:10px; color:#bbb;">PatriMoi v1.6 · ${date}</div>
+    </div>
+
+  </div>
+</div>
 </body>
 </html>`;
 
@@ -612,7 +804,7 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     } finally {
       setExportingPDF(false);
     }
-  }, [data, objectif, nomComplet, pdfFrom, pdfTo]); // eslint-disable-line
+  }, [data, objectif, nomComplet, history, trackingStartDate, pdfFrom, pdfTo]); // eslint-disable-line
 
   // Export CSV — pure JS, toujours fonctionnel (pas de module natif)
   const handleExportCSV = useCallback(async () => {
