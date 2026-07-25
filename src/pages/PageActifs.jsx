@@ -7,7 +7,7 @@ import {
   calcCT, calcCTCout, calcOr, calcImmo, calcTransport,
   valImmo, valTransport, valOr,
 } from '../utils/calc';
-import { fmt, fmtN, pctDiff } from '../utils/fmt';
+import { fmt, fmtN, fmtCours, pctDiff } from '../utils/fmt';
 import { getBvcCache, fetchPrixOr, fetchDevises } from '../utils/api';
 import {
   Card, BtnPri, BtnSec, PLBadge, IconBox,
@@ -887,7 +887,7 @@ function SubPEA({ data, setData, onBack }) {
                 {/* Ligne détails */}
                 <View style={{ paddingHorizontal:12, paddingBottom:6 }}>
                   <Text style={{ fontSize:10, color:C.g3 }}>
-                    {t.qty} titres · PRU {t.pru.toFixed(2)} · Cours {t.cours.toFixed(2)}
+                    {t.qty} titres · PRU {fmtCours(t.pru)} · Cours {fmtCours(t.cours)}
                     {mois !== null ? `  ·  ${mois} mois${mois >= 60 ? ' ✓ Exo.' : ''}` : ''}
                   </Text>
                 </View>
@@ -922,11 +922,11 @@ function SubPEA({ data, setData, onBack }) {
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>PRU (coût moy. pondéré)</Text>
-                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.pru.toFixed(2)} DH</Text>
+                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.pru)}</Text>
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>Cours actuel</Text>
-                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.cours.toFixed(2)} DH</Text>
+                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.cours)}</Text>
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>Coût de revient</Text>
@@ -1257,7 +1257,7 @@ function SubCT({ data, setData, onBack }) {
                     {/* Ligne détails */}
                     <View style={{ paddingHorizontal:12, paddingBottom:6 }}>
                       <Text style={{ fontSize:10, color:C.g3 }}>
-                        {t.qty} titres · PRU {t.pru.toFixed(2)} · Cours {t.cours.toFixed(2)}
+                        {t.qty} titres · PRU {fmtCours(t.pru)} · Cours {fmtCours(t.cours)}
                         {mois !== null ? `  ·  ${mois} mois` : ''}
                       </Text>
                     </View>
@@ -1290,11 +1290,11 @@ function SubCT({ data, setData, onBack }) {
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>PRU (coût moy. pondéré)</Text>
-                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.pru.toFixed(2)} DH</Text>
+                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.pru)}</Text>
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>Cours actuel</Text>
-                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.cours.toFixed(2)} DH</Text>
+                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.cours)}</Text>
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>Coût de revient</Text>
