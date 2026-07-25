@@ -88,4 +88,7 @@ export const INIT = {
   ],
   prixOr:     1285,
   lastUpdate: '',
+  operations:          [],  // Budget : { id, date, montant, type, categorie, description }
+  budgetCibles:        {},  // Budget cibles par catégorie : { alimentation: 3000, transport: 500, ... }
+  revenus_recurrents:  [],  // Revenus auto : { id, label, montant, jour, actif, dernierAjout }
 };

@@ -1,0 +1,15 @@
+# PatriMoi — Matchfile
+# Stockage des certificats et profils de provisioning (App Store Distribution)
+#
+# Prérequis : créer un repo git privé dédié aux certs (ex: github.com/TonUser/patrimoi-certs)
+# et l'indiquer dans MATCH_GIT_URL (ou .env.local).
+# Le repo ne doit JAMAIS être public.
+
+git_url        ENV["MATCH_GIT_URL"]          # ex: "git@github.com:TonUser/patrimoi-certs.git"
+storage_mode   "git"
+type           "appstore"                     # override par match(type: ...) dans Fastfile
+app_identifier "ma.patrimoi.app"
+username       ENV["APPLE_ID"] || "zineddine.othmane1@gmail.com"
+team_id        ENV["TEAM_ID"]
+
+# Le mot de passe de chiffrement est dans MATCH_PASSWORD (jamais en clair ici)

@@ -12,7 +12,7 @@
  *   const migratedData = migrateData(rawData);
  */
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 // ── Liste ordonnée des migrations ─────────────────────────────────────────────
 // migration[0] = passe de schemaVersion 0 (absent) → 1
@@ -35,6 +35,14 @@ const MIGRATIONS = [
     or:          data.or          ?? [],
     prixOr:      data.prixOr      ?? 0,
     lastUpdate:  data.lastUpdate  ?? '',
+  }),
+
+  // v1 → v2 : ajout des champs budget (opérations + cibles)
+  (data) => ({
+    ...data,
+    schemaVersion: 2,
+    operations:   data.operations   ?? [],
+    budgetCibles: data.budgetCibles ?? {},
   }),
 ];
 

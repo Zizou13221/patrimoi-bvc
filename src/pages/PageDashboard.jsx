@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert } from 'react-native';
 import { C } from '../constants/colors';
 import {
@@ -9,6 +9,7 @@ import { fmt, pctDiff } from '../utils/fmt';
 import { Card, IconBox, BarH, SparklineInteractive, DonutSimple } from '../components/shared';
 import { usePatrimoineStore } from '../store/patrimoineStore';
 import { getBvcCache } from '../utils/api';
+import { upsertSnapshot } from '../utils/history';
 
 const PageDashboard = React.memo(function PageDashboard({
   onNav, onRefreshOr, onRefreshBVC,
@@ -22,6 +23,7 @@ const PageDashboard = React.memo(function PageDashboard({
   const objectif            = usePatrimoineStore(s => s.objectif);
   const demoMode            = usePatrimoineStore(s => s.demoMode);
   const trackingStartDate   = usePatrimoineStore(s => s.trackingStartDate);
+  const setHistory          = usePatrimoineStore(s => s.setHistory);
   const [period, setPeriod] = useState('1A');
 
   const peaVal  = useMemo(() => calcPEA(data.pea),            [data.pea]);
@@ -46,6 +48,50 @@ const PageDashboard = React.memo(function PageDashboard({
   const pl       = total - cost;
   const plPct    = cost > 0 ? ((pl / cost) * 100) : 0;
   const activeCats = cats.filter(c => c.val > 0).length;
+
+  // ── Auto-snapshot journalier ──────────────────────────────
+  useEffect(() => {
+    if (demoMode || total <= 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const alreadyToday = history?.some(h => h.date === today);
+    if (!alreadyToday) {
+      setHistory(h => upsertSnapshot(h || [], today, total));
+    }
+  }, [total, demoMode]); // eslint-disable-line
+
+  // ── Delta mensuel (variation depuis début du mois) ────────
+  const monthDelta = useMemo(() => {
+    if (!history || history.length < 2 || demoMode) return null;
+    const now = new Date();
+    const startOfMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+    const ref = sorted.find(h => h.date >= startOfMonth) || sorted[sorted.length - 2];
+    if (!ref || ref.val <= 0) return null;
+    const diff = total - ref.val;
+    return { diff, pct: (diff / ref.val * 100) };
+  }, [history, total, demoMode]);
+
+  // ── Taux de rendement annualisé ───────────────────────────
+  const rendement = useMemo(() => {
+    if (total <= 0) return null;
+    const interetsCarnet  = (data.carnet || []).reduce((s, c) => s + ((c.solde || 0) * (c.taux || 0) / 100), 0);
+    const loyersAnnuels   = (data.revenus_recurrents || [])
+      .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+      .reduce((s, r) => s + (r.montant || 0) * 12, 0);
+    const annee = new Date().getFullYear();
+    const dividendesAnnuels = (data.operations || [])
+      .filter(op => op.type === 'revenu' && op.categorie === 'dividende' && new Date(op.date).getFullYear() === annee)
+      .reduce((s, op) => s + (op.montant || 0), 0);
+    const totalAnnuel = interetsCarnet + loyersAnnuels + dividendesAnnuels;
+    if (totalAnnuel <= 0) return null;
+    return {
+      taux: (totalAnnuel / total * 100),
+      totalAnnuel,
+      interetsCarnet,
+      loyersAnnuels,
+      dividendesAnnuels,
+    };
+  }, [data, total]);
 
   // Données fictives pour le graphique en mode démo (quand historique vide)
   const demoSparkData = useMemo(() => {
@@ -231,6 +277,18 @@ const PageDashboard = React.memo(function PageDashboard({
 
         {/* Sparkline ou message vide */}
         <View style={{ marginTop:10 }}>
+          {/* Delta mensuel */}
+          {monthDelta && !discret && (
+            <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:6 }}>
+              <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:6, paddingHorizontal:8, paddingVertical:3 }}>
+                <Text style={{ fontSize:11, color: monthDelta.diff >= 0 ? '#6EE7A0' : '#FCA5A5', fontWeight:'600' }}>
+                  {monthDelta.diff >= 0 ? '+' : ''}{Math.round(monthDelta.diff).toLocaleString('fr-FR')} DH ce mois
+                  {'  '}{monthDelta.diff >= 0 ? '▲' : '▼'} {Math.abs(monthDelta.pct).toFixed(1)}%
+                </Text>
+              </View>
+            </View>
+          )}
+
           {(sparkData || demoSparkData) ? (
             <>
               <SparklineInteractive data={(sparkData || demoSparkData).pts} dates={(sparkData || demoSparkData).dates} color={C.acc}/>
@@ -336,6 +394,39 @@ const PageDashboard = React.memo(function PageDashboard({
             </View>
           </View>
         </Card>
+
+        {/* Taux de rendement */}
+        {rendement && !discret && (
+          <Card style={{ borderLeftWidth:4, borderLeftColor:C.gpos, marginBottom:10 }}>
+            <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <Text style={{ fontWeight:'700', fontSize:13, color:C.dark }}>Rendement annualisé 📈</Text>
+              <View style={{ backgroundColor:C.gpos, borderRadius:8, paddingHorizontal:10, paddingVertical:4 }}>
+                <Text style={{ fontWeight:'800', fontSize:14, color:'#fff' }}>{rendement.taux.toFixed(2)}%</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection:'row', gap:8 }}>
+              {rendement.interetsCarnet > 0 && (
+                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
+                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Intérêts carnet</Text>
+                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.interetsCarnet).toLocaleString('fr-FR')} DH/an</Text>
+                </View>
+              )}
+              {rendement.loyersAnnuels > 0 && (
+                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
+                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Loyers</Text>
+                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.loyersAnnuels).toLocaleString('fr-FR')} DH/an</Text>
+                </View>
+              )}
+              {rendement.dividendesAnnuels > 0 && (
+                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
+                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Dividendes {new Date().getFullYear()}</Text>
+                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.dividendesAnnuels).toLocaleString('fr-FR')} DH</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ fontSize:9, color:C.g3, marginTop:6 }}>Hors plus-values latentes (BVC, immobilier)</Text>
+          </Card>
+        )}
 
         {/* Repartition */}
         <Card>

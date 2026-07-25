@@ -16,7 +16,7 @@ import { INIT } from '../constants/data';
 
 const PREFS_KEY = '@patrimoi_prefs';
 
-export default function PageParams({ onSignOut, onObjectifChange, onTrackingStartChange }) {
+export default function PageParams({ onSignOut, onObjectifChange, onTrackingStartChange, onNav }) {
   const data     = usePatrimoineStore(s => s.data);
   const user     = usePatrimoineStore(s => s.user);
   const demoMode = usePatrimoineStore(s => s.demoMode);
@@ -513,9 +513,10 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
 
   const sections = [
     { title:'Mon compte', items:[
-      { label:'Informations personnelles', right:'›', onPress: handleEditProfile },
-      { label:"Monnaie d'affichage",       right:'DH (MAD) ›', onPress:() => handleItem("Monnaie d'affichage") },
-      { label:'Date de debut de suivi',    right:`${trackLabel} ›`, onPress:() => { setTrackInput(trackDate || ''); setEditTrack(true); } },
+      { label:'À propos de PatriMoi',       right:'›', onPress: () => onNav?.('apropos') },
+      { label:'Informations personnelles',  right:'›', onPress: handleEditProfile },
+      { label:"Monnaie d'affichage",        right:'DH (MAD) ›', onPress:() => handleItem("Monnaie d'affichage") },
+      { label:'Date de debut de suivi',     right:`${trackLabel} ›`, onPress:() => { setTrackInput(trackDate || ''); setEditTrack(true); } },
     ]},
     { title:'Sécurité', items:[
       { label:'Auth. biometrique (Face ID)',    right:<Toggle on={bio}      onChange={handleBioToggle}/> },
@@ -664,6 +665,27 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
         >
           <Text style={{ color:C.sec, fontWeight:'700', fontSize:14 }}>Se déconnecter</Text>
         </TouchableOpacity>
+
+        {demoMode && (
+          <>
+            {/* Notre mission */}
+            <View style={{ backgroundColor:C.white, borderRadius:12, padding:16, marginTop:16, marginBottom:8, borderLeftWidth:4, borderLeftColor:C.gpos, shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.06, shadowRadius:4, elevation:2 }}>
+              <Text style={{ fontSize:12, fontWeight:'700', color:C.gpos, marginBottom:6, letterSpacing:0.5, textTransform:'uppercase' }}>Notre mission</Text>
+              <Text style={{ fontSize:13, color:C.dark, lineHeight:20 }}>
+                Donner à chaque Marocain les outils pour comprendre, suivre et faire croître son patrimoine — simplement, en français ou en arabe, depuis son téléphone.
+              </Text>
+            </View>
+
+            {/* Notre vision */}
+            <View style={{ backgroundColor:'#FFFDE7', borderRadius:12, padding:16, marginBottom:24, shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.06, shadowRadius:4, elevation:2 }}>
+              <Text style={{ fontSize:12, fontWeight:'700', color:'#D4900A', marginBottom:6, letterSpacing:0.5, textTransform:'uppercase' }}>Notre vision</Text>
+              <Text style={{ fontSize:13, color:C.dark, lineHeight:20 }}>
+                Avant PatriMoi, aucune application marocaine ne centralisait patrimoine financier, immobilier, or et devises en un seul endroit.{' '}
+                <Text style={{ fontWeight:'800' }}>Nous l'avons créé.</Text>
+              </Text>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Modal — PIN 6 chiffres (AN_012) */}

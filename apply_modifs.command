@@ -15,6 +15,7 @@ cp "$SRC/src/pages/PageAPropos.jsx"    "$DST/src/pages/PageAPropos.jsx"    && ec
 cp "$SRC/src/pages/PageDashboard.jsx"  "$DST/src/pages/PageDashboard.jsx"  && echo "✓ PageDashboard.jsx (timestamps BVC/Or)"
 cp "$SRC/src/pages/PageConseils.jsx"   "$DST/src/pages/PageConseils.jsx"   && echo "✓ PageConseils.jsx"
 cp "$SRC/src/pages/PageActifs.jsx"     "$DST/src/pages/PageActifs.jsx"     && echo "✓ PageActifs.jsx"
+cp "$SRC/src/pages/PageSuiviBudget.jsx" "$DST/src/pages/PageSuiviBudget.jsx" && echo "✓ PageSuiviBudget.jsx (Budget)"
 cp "$SRC/src/pages/PageParams.jsx"     "$DST/src/pages/PageParams.jsx"     2>/dev/null && echo "✓ PageParams.jsx"
 cp "$SRC/src/pages/PageProverbe.jsx"   "$DST/src/pages/PageProverbe.jsx"   2>/dev/null && echo "✓ PageProverbe.jsx"
 cp "$SRC/src/pages/PageOnboarding.jsx" "$DST/src/pages/PageOnboarding.jsx" 2>/dev/null && echo "✓ PageOnboarding.jsx"

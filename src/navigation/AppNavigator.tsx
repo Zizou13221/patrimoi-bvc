@@ -14,8 +14,9 @@ import { fmtDate } from '../utils/fmt';
 
 import PageProverbe  from '../pages/PageProverbe';
 import PageDashboard from '../pages/PageDashboard';
-import PageActifs    from '../pages/PageActifs';
-import PageConseils  from '../pages/PageConseils';
+import PageActifs        from '../pages/PageActifs';
+import PageSuiviBudget  from '../pages/PageSuiviBudget';
+import PageConseils     from '../pages/PageConseils';
 import PageAPropos   from '../pages/PageAPropos';
 import PageParams    from '../pages/PageParams';
 
@@ -24,8 +25,8 @@ const NAV_ITEMS = [
   { name: 'proverbe',  label: 'Accueil',   abbr: 'ACC' },
   { name: 'dashboard', label: 'Dashboard',  abbr: 'DBD' },
   { name: 'actifs',    label: 'Actifs',     abbr: 'ACT' },
+  { name: 'budget',    label: 'Budget',     abbr: 'BDG' },
   { name: 'conseils',  label: 'Conseils',   abbr: 'CNS' },
-  { name: 'apropos',   label: 'A propos',   abbr: 'APR' },
   { name: 'params',    label: 'Params',     abbr: 'PRM' },
 ];
 
@@ -114,10 +115,11 @@ export function AppNavigator() {
       <View style={{ flex: 1 }}>
         {currentPage === 'proverbe'  && <PageProverbe  onNav={onNav} />}
         {currentPage === 'dashboard' && <PageDashboard onNav={onNav} onRefreshOr={refreshOr} onRefreshBVC={refreshBVC} />}
-        {currentPage === 'actifs'    && <PageActifs    onNav={onNav} />}
-        {currentPage === 'conseils'  && <PageConseils  onNav={onNav} />}
+        {currentPage === 'actifs'    && <PageActifs        onNav={onNav} />}
+        {currentPage === 'budget'    && <PageSuiviBudget  onNav={onNav} />}
+        {currentPage === 'conseils'  && <PageConseils     onNav={onNav} />}
         {currentPage === 'apropos'   && <PageAPropos />}
-        {currentPage === 'params'    && <PageParams onSignOut={handleSignOut} onObjectifChange={setObjectif} onTrackingStartChange={setTrackingStartDate} />}
+        {currentPage === 'params'    && <PageParams onSignOut={handleSignOut} onObjectifChange={setObjectif} onTrackingStartChange={setTrackingStartDate} onNav={onNav} />}
       </View>
       <NavBar current={currentPage} onPress={onTabPress} />
     </SafeAreaView>

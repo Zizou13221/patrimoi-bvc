@@ -8,7 +8,7 @@ import {
   valImmo, valTransport, valOr,
 } from '../utils/calc';
 import { fmt, fmtN, pctDiff } from '../utils/fmt';
-import { getBvcCache } from '../utils/api';
+import { getBvcCache, fetchPrixOr, fetchDevises } from '../utils/api';
 import {
   Card, BtnPri, BtnSec, PLBadge, IconBox,
   SectionTitle, InfoRow, MethodSelector, Input, SelectInput, TopBar, BarH, SparklineInteractive,
@@ -151,7 +151,31 @@ function SubLiquide({ data, setData, onBack }) {
   const [nom,     setNom]       = useState('');
   const [qty,     setQty]       = useState('');
   const [taux,    setTaux]      = useState('');
+  const [devisesUpdatedAt, setDevisesUpdatedAt] = useState(null);
+  const [devisesLoading,   setDevisesLoading]   = useState(false);
   const COLS = ['#005090','#003280','#640064','#006440','#804000'];
+
+  // ── Auto-fetch taux BAM au montage ──────────────────────────
+  useEffect(() => {
+    const codes = (liq.devises || []).map(d => d.code);
+    if (codes.length === 0) return;
+    setDevisesLoading(true);
+    fetchDevises(codes).then(res => {
+      setDevisesLoading(false);
+      if (!res) return;
+      setData(d => ({
+        ...d,
+        liquidites: {
+          ...d.liquidites,
+          devises: (d.liquidites.devises || []).map(dv => {
+            const taux = res[dv.code];
+            return taux ? { ...dv, taux: parseFloat(taux.toFixed(4)), variation: 0 } : dv;
+          }),
+        },
+      }));
+      setDevisesUpdatedAt(new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }));
+    });
+  }, []);
 
   function startEdit(i) {
     const dv = liq.devises[i];
@@ -259,7 +283,9 @@ function SubLiquide({ data, setData, onBack }) {
               <View style={{ flex:1 }}>
                 <Text style={{ fontWeight:'600', fontSize:13 }}>{dv.nom}</Text>
                 <Text style={{ fontSize:11, color:C.g3 }}>{fmtN(dv.quantite)} {dv.code} — 1 {dv.code} = {dv.taux.toFixed(2)} DH</Text>
-                <Text style={{ fontSize:10, color:C.g2, marginTop:2 }}>Source : Bank Al-Maghrib</Text>
+                <Text style={{ fontSize:10, color:C.g2, marginTop:2 }}>
+                  {devisesLoading ? '⟳ Mise à jour des taux…' : devisesUpdatedAt ? `✓ BAM — mis à jour à ${devisesUpdatedAt}` : 'Source : Bank Al-Maghrib'}
+                </Text>
               </View>
               <View style={{ alignItems:'flex-end' }}>
                 <Text style={{ fontWeight:'700', fontSize:13 }}>{fmt(dv.quantite * dv.taux)}</Text>
@@ -1336,6 +1362,13 @@ function SubOr({ data, setData, onBack }) {
   const [pa,  setPa]  = useState('');
   const [po,  setPo]  = useState('');
 
+  // ── Auto-fetch prix or au montage ───────────────────────────
+  useEffect(() => {
+    fetchPrixOr().then(prix => {
+      if (prix) setData(d => ({ ...d, prixOr: prix }));
+    });
+  }, []);
+
   function startEdit(i) {
     const o = or[i];
     setNom(o.nom); setQty(String(o.quantite)); setPa(String(o.prixAchat));
@@ -1371,6 +1404,36 @@ function SubOr({ data, setData, onBack }) {
         setData(d => ({ ...d, or: d.or.filter((_, j) => j !== i) }))
       },
     ]);
+  }
+
+  function vendreOr(i) {
+    const o = or[i];
+    const valEstim = Math.round(o.quantite * prixOr);
+    Alert.alert(
+      `Vente — ${o.nom}`,
+      `Valeur estimée au cours actuel :\n${valEstim.toLocaleString('fr-FR')} DH\n\nEnregistrer cette vente dans votre budget ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Supprimer sans enregistrer', style: 'destructive', onPress: () =>
+          setData(d => ({ ...d, or: d.or.filter((_, j) => j !== i) }))
+        },
+        { text: `✓ Vendre (+${valEstim.toLocaleString('fr-FR')} DH)`, onPress: () =>
+          setData(d => ({
+            ...d,
+            or: d.or.filter((_, j) => j !== i),
+            operations: [...(d.operations || []), {
+              id: `vente-or-${Date.now()}`,
+              date: new Date().toISOString(),
+              montant: valEstim,
+              type: 'revenu',
+              categorie: 'autre',
+              actif: null,
+              description: `Vente Or — ${o.nom}`,
+            }],
+          }))
+        },
+      ]
+    );
   }
 
   const showForm = showAdd || editIdx >= 0;
@@ -1411,6 +1474,13 @@ function SubOr({ data, setData, onBack }) {
                 <Text style={{ fontSize:13, fontWeight:'700', color:C.gold }}>{fmt(vr)}</Text>
               </View>
               <ActionBtns onEdit={() => startEdit(i)} onDelete={() => deleteOr(i)}/>
+              <TouchableOpacity
+                onPress={() => vendreOr(i)}
+                style={{ marginTop:6, backgroundColor:'#E8F5E9', borderRadius:8, paddingVertical:8, alignItems:'center', borderWidth:1, borderColor:C.gpos }}
+                activeOpacity={0.75}
+              >
+                <Text style={{ color:C.gpos, fontWeight:'700', fontSize:12 }}>💰 Enregistrer la vente dans le budget</Text>
+              </TouchableOpacity>
             </Card>
           );
         })}
@@ -1442,7 +1512,7 @@ function SubOr({ data, setData, onBack }) {
 function SubImmobilier({ data, setData, onBack }) {
   const immo  = data.immobilier;
   const total = calcImmo(immo);
-  const EMPTY_FORM = { nom:'', type:'Bien bati', ville:'', surface:'', prixAchat:'', prixM2:'', prixOffert:'', meth:'estimatif' };
+  const EMPTY_FORM = { nom:'', type:'Bien bati', ville:'', surface:'', prixAchat:'', prixM2:'', prixOffert:'', meth:'estimatif', loyerMontant:'', loyerJour:'1' };
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState(-1);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1465,18 +1535,44 @@ function SubImmobilier({ data, setData, onBack }) {
 
   function saveBien() {
     if (!form.nom || !isNum(form.prixAchat)) return;
+    const { loyerMontant, loyerJour, ...formRest } = form;
     const entry = {
       id: editIdx >= 0 ? immo[editIdx].id : Date.now(),
-      ...form,
-      surface: parseFloat(form.surface) || 0,
-      prixAchat: parseFloat(form.prixAchat) || 0,
-      prixM2: parseFloat(form.prixM2) || 0,
-      prixOffert: form.prixOffert ? parseFloat(form.prixOffert) : null,
+      ...formRest,
+      surface: parseFloat(formRest.surface) || 0,
+      prixAchat: parseFloat(formRest.prixAchat) || 0,
+      prixM2: parseFloat(formRest.prixM2) || 0,
+      prixOffert: formRest.prixOffert ? parseFloat(formRest.prixOffert) : null,
       datAchat: editIdx >= 0 ? immo[editIdx].datAchat : new Date().getFullYear().toString(),
       unite: 'm2',
     };
     if (editIdx >= 0) {
       setData(d => ({ ...d, immobilier: d.immobilier.map((x, i) => i === editIdx ? entry : x) }));
+    } else if (form.type === 'Bien locatif') {
+      // Nouveau bien locatif : créer loyer récurrent atomiquement si montant renseigné
+      const loyerM = parseFloat(loyerMontant) || 0;
+      const loyerJ = parseInt(loyerJour) || 1;
+      const revenu = loyerM > 0 ? {
+        id: `loyer-${Date.now()}`,
+        label: `Loyer — ${form.nom}`,
+        montant: loyerM,
+        jour: loyerJ,
+        actif: true,
+        dernierAjout: '',
+      } : null;
+      setData(d => ({
+        ...d,
+        immobilier: [...d.immobilier, entry],
+        revenus_recurrents: revenu
+          ? [...(d.revenus_recurrents || []), revenu]
+          : (d.revenus_recurrents || []),
+      }));
+      if (loyerM > 0) {
+        Alert.alert(
+          '🏠 Loyer créé automatiquement',
+          `Un revenu récurrent "${form.nom}" a été ajouté dans Budget → Revenus récurrents.\n\n${loyerM.toLocaleString('fr-FR')} DH le ${loyerJ} de chaque mois.`
+        );
+      }
     } else {
       setData(d => ({ ...d, immobilier: [...d.immobilier, entry] }));
     }
@@ -1505,11 +1601,14 @@ function SubImmobilier({ data, setData, onBack }) {
 
         {immo.map((b, i) => {
           const ve = b.prixM2 * b.surface, vr = valImmo(b);
+          const loyerLie = b.type === 'Bien locatif'
+            ? (data.revenus_recurrents || []).find(r => r.label?.includes(b.nom))
+            : null;
           return (
             <Card key={i}>
               <View style={{ backgroundColor:C.priL, borderRadius:8, padding:10, flexDirection:'row', justifyContent:'space-between', marginBottom:8 }}>
                 <View style={{ flexDirection:'row', gap:8, alignItems:'center' }}>
-                  <IconBox label={b.type === 'Terrain' ? 'TRN' : 'APP'} bg={'#B46428'} size={34} fs={8}/>
+                  <IconBox label={b.type === 'Terrain' ? 'TRN' : b.type === 'Bien locatif' ? 'LOC' : 'APP'} bg={'#B46428'} size={34} fs={8}/>
                   <View>
                     <Text style={{ fontWeight:'700', fontSize:13, color:C.pri }}>{b.nom}</Text>
                     <Text style={{ fontSize:11, color:C.g3 }}>{b.type} — {b.ville} — {b.surface} {b.unite || 'm2'}</Text>
@@ -1517,6 +1616,13 @@ function SubImmobilier({ data, setData, onBack }) {
                 </View>
                 <PLBadge value={vr} base={b.prixAchat}/>
               </View>
+              {b.type === 'Bien locatif' && (
+                <View style={{ backgroundColor: loyerLie ? '#E8F5E9' : '#FFF8E1', borderRadius:8, padding:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <Text style={{ fontSize:11, color: loyerLie ? C.gpos : '#D4900A', fontWeight:'600' }}>
+                    {loyerLie ? `🔄 Loyer récurrent : +${loyerLie.montant?.toLocaleString('fr-FR')} DH / mois` : '⚠ Aucun loyer récurrent configuré'}
+                  </Text>
+                </View>
+              )}
               <InfoRow label="Prix d'achat"      value={fmt(b.prixAchat)} sub={'Acquis en ' + b.datAchat}/>
               <InfoRow label="Valeur estimative" value={fmt(ve)}           sub="Prix/m2 x Surface"/>
               <InfoRow label="Prix offert"       value={b.prixOffert ? fmt(b.prixOffert) : 'N/A'} sub="Meilleure offre recue"/>
@@ -1536,12 +1642,26 @@ function SubImmobilier({ data, setData, onBack }) {
               {editIdx >= 0 ? 'Modifier le bien' : 'Ajouter un bien'}
             </Text>
             <Input label="Designation"             value={form.nom}        onChangeText={v=>up('nom',v)}        placeholder="Appartement Gueliz"/>
-            <SelectInput label="Type"              value={form.type}       onChange={v=>up('type',v)}           options={['Bien bati','Terrain']}/>
+            <SelectInput label="Type"              value={form.type}       onChange={v=>up('type',v)}           options={['Bien bati','Terrain','Bien locatif']}/>
             <Input label="Ville"                   value={form.ville}      onChangeText={v=>up('ville',v)}      placeholder="Casablanca"/>
             <Input label="Surface (m2)"            value={form.surface}    onChangeText={v=>up('surface',v)}    keyboardType="numeric" unit="m2"/>
             <Input label="Prix d'achat (DH)"       value={form.prixAchat}  onChangeText={v=>up('prixAchat',v)}  keyboardType="numeric"/>
             <Input label="Prix au m2 du secteur"   value={form.prixM2}     onChangeText={v=>up('prixM2',v)}     keyboardType="numeric" unit="DH/m2"/>
             <Input label="Prix offert (optionnel)" value={form.prixOffert} onChangeText={v=>up('prixOffert',v)} keyboardType="numeric"/>
+            {form.type === 'Bien locatif' && editIdx < 0 && (
+              <View style={{ backgroundColor:'#E8F5E9', borderRadius:10, padding:12, marginTop:6, borderLeftWidth:3, borderLeftColor:C.gpos }}>
+                <Text style={{ fontSize:12, fontWeight:'700', color:C.gpos, marginBottom:8 }}>🔄 Loyer récurrent (optionnel)</Text>
+                <View style={{ flexDirection:'row', gap:8 }}>
+                  <View style={{ flex:2 }}>
+                    <Input label="Montant loyer (DH)" value={form.loyerMontant} onChangeText={v=>up('loyerMontant',v)} keyboardType="numeric" placeholder="5000"/>
+                  </View>
+                  <View style={{ flex:1 }}>
+                    <Input label="Jour du mois" value={form.loyerJour} onChangeText={v=>up('loyerJour',v)} keyboardType="numeric" placeholder="1"/>
+                  </View>
+                </View>
+                <Text style={{ fontSize:10, color:C.g3, marginTop:4 }}>Sera ajouté automatiquement dans Budget → Revenus récurrents</Text>
+              </View>
+            )}
             <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
               <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
               <BtnPri onPress={saveBien} disabled={!form.nom || !isNum(form.prixAchat)} style={{ flex:1 }}>

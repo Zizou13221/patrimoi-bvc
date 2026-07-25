@@ -71,4 +71,23 @@ export const usePatrimoineStore = create((set) => ({
   // AN_014 — date de début de suivi (ISO string ou null)
   trackingStartDate: null,
   setTrackingStartDate: (v) => set({ trackingStartDate: v }),
+
+  // ── Budget (opérations) ───────────────────────────────────
+  // Stockées dans data.operations pour sync Supabase automatique via setData
+  addOperation: (op) => set(state => {
+    const ops = [...(state.data.operations || []), op];
+    const newData = { ...state.data, operations: ops };
+    if (state.user && !state.demoMode) enqueueSync(state.user.id, newData);
+    return { data: newData };
+  }),
+  setOperations: (ops) => set(state => {
+    const newData = { ...state.data, operations: Array.isArray(ops) ? ops : ops(state.data.operations || []) };
+    if (state.user && !state.demoMode) enqueueSync(state.user.id, newData);
+    return { data: newData };
+  }),
+  setBudgetCibles: (cibles) => set(state => {
+    const newData = { ...state.data, budgetCibles: cibles };
+    if (state.user && !state.demoMode) enqueueSync(state.user.id, newData);
+    return { data: newData };
+  }),
 }));
