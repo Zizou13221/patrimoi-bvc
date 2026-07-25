@@ -44,16 +44,16 @@ const valeurDepreciee = (pa, annee, type) => {
 };
 
 // ─── Liste BVC — ordre alphabétique par nom de société ───────────────────────
-// Source : bvc_batch.py (ISINs vérifiés) + casablanca-bourse.com (noms officiels)
+// Source : casablanca-bourse.com (noms officiels) + TradingView CSEMA (tickers)
 const BVC_LIST = [
   'ADH - Addoha',
   'AFM - AFMA',
   'AFI - Afric Industries',
   'AFG - Afriquia Gaz',
-  'AGM - AGMA Lahlou-Tazi',
+  'AGM - AGMA SA',
   'AKT - Akdital',
-  'ALM - Alliances',
-  'ADI - Alliances Développement Immobilier',
+  'ADI - Alliances',
+  'ALM - Aluminium du Maroc',
   'ARD - Aradei Capital',
   'ATL - Atlantasanad',
   'ATW - Attijariwafa Bank',
@@ -63,7 +63,6 @@ const BVC_LIST = [
   'BOA - Bank of Africa',
   'BCP - Banque Centrale Populaire',
   'BMCI - BMCI',
-  'SBM - Brasseries du Maroc',
   'CRS - Cartier Saada',
   'CAP - Cash Plus',
   'CFG - CFG Bank',
@@ -104,9 +103,10 @@ const BVC_LIST = [
   'MUT - Mutandis',
   'OUL - Oulmès',
   'PRO - Promopharm',
+  'SRM - Réalisations Mécaniques',
   'REB - Rebab Company',
-  'RIS - RISMA',
   'RDS - Résidences Dar Saada',
+  'RIS - RISMA',
   'S2M - S2M',
   'SLF - Salafin',
   'SAM - Samir',
@@ -114,9 +114,9 @@ const BVC_LIST = [
   'GTM - SGTM',
   'SMI - SMI',
   'SNP - SNEP',
+  'SBM - Société des Boissons du Maroc',
   'SID - Sonasid',
   'SOT - Sothema',
-  'SRM - Stokvis Maroc',
   'SNA - Stokvis Nord Afrique',
   'STR - Stroc Industrie',
   'T2S - T2S Group Holding',
