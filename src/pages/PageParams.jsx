@@ -61,6 +61,18 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
   const [editTrack,    setEditTrack]    = useState(false);
   const [trackInput,   setTrackInput]   = useState('');
 
+  // ── Alertes BVC ───────────────────────────────────────────
+  const [bvcAlerts,    setBvcAlerts]    = useState([]);
+  const [alertModal,   setAlertModal]   = useState(false);
+  const [alertTicker,  setAlertTicker]  = useState('');
+  const [alertHaut,    setAlertHaut]    = useState('');
+  const [alertBas,     setAlertBas]     = useState('');
+  const [editAlertIdx, setEditAlertIdx] = useState(-1);
+  // ── PDF date range ────────────────────────────────────────
+  const [pdfModal,     setPdfModal]     = useState(false);
+  const [pdfFrom,      setPdfFrom]      = useState('');
+  const [pdfTo,        setPdfTo]        = useState('');
+
   // Charger préférences persistées (MMKV sync — Phase 3)
   useEffect(() => {
     const p = storage.get(PREFS_KEY);
@@ -79,6 +91,9 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     // AN_014 : date de début
     const td = storage.get(TRACK_KEY);
     if (td) { setTrackDate(td); onTrackingStartChange?.(td); }
+    // Alertes BVC
+    const savedAlerts = storage.get('@patrimoi_bvc_alerts') || [];
+    setBvcAlerts(savedAlerts);
   }, []); // eslint-disable-line
 
   const savePrefs = useCallback((patch) => {
@@ -148,6 +163,68 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     setEditTrack(false);
     Alert.alert('Date enregistrée', `Suivi depuis le ${new Date(iso).toLocaleDateString('fr-FR')}.`);
   }, [trackInput, onTrackingStartChange]);
+
+  // ── Alertes BVC — CRUD ────────────────────────────────────
+  const saveAlertsList = useCallback((updated) => {
+    setBvcAlerts(updated);
+    storage.set('@patrimoi_bvc_alerts', updated);
+  }, []);
+
+  const handleOpenAddAlert = useCallback(() => {
+    setAlertTicker(''); setAlertHaut(''); setAlertBas(''); setEditAlertIdx(-1);
+    setAlertModal(true);
+  }, []);
+
+  const handleEditAlert = useCallback((idx) => {
+    const a = bvcAlerts[idx];
+    setAlertTicker(a.ticker);
+    setAlertHaut(a.seuilHaut > 0 ? String(a.seuilHaut) : '');
+    setAlertBas(a.seuilBas  > 0 ? String(a.seuilBas)  : '');
+    setEditAlertIdx(idx);
+    setAlertModal(true);
+  }, [bvcAlerts]);
+
+  const handleSaveAlert = useCallback(() => {
+    const ticker = alertTicker.trim().toUpperCase().replace(/ .*/, ''); // prend juste le ticker
+    if (!ticker) { Alert.alert('Erreur', 'Entrez un ticker BVC (ex : ATW, BCP…)'); return; }
+    const h = parseFloat(String(alertHaut).replace(',', '.')) || 0;
+    const b = parseFloat(String(alertBas).replace(',', '.'))  || 0;
+    if (h === 0 && b === 0) { Alert.alert('Erreur', 'Définissez au moins un seuil (haut ou bas).'); return; }
+    const newAlert = {
+      id:        editAlertIdx >= 0 ? bvcAlerts[editAlertIdx].id : Date.now(),
+      ticker,
+      seuilHaut: h,
+      seuilBas:  b,
+      enabled:   true,
+    };
+    const updated = editAlertIdx >= 0
+      ? bvcAlerts.map((a, i) => i === editAlertIdx ? newAlert : a)
+      : [...bvcAlerts, newAlert];
+    saveAlertsList(updated);
+    setAlertModal(false);
+  }, [alertTicker, alertHaut, alertBas, editAlertIdx, bvcAlerts, saveAlertsList]);
+
+  const handleDeleteAlert = useCallback((idx) => {
+    Alert.alert('Supprimer', 'Supprimer cette alerte ?', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Supprimer', style: 'destructive', onPress: () => saveAlertsList(bvcAlerts.filter((_, i) => i !== idx)) },
+    ]);
+  }, [bvcAlerts, saveAlertsList]);
+
+  const handleToggleAlert = useCallback((idx) => {
+    saveAlertsList(bvcAlerts.map((a, i) => i === idx ? { ...a, enabled: !a.enabled } : a));
+  }, [bvcAlerts, saveAlertsList]);
+
+  // ── PDF — ouvrir modal plage de dates ─────────────────────
+  const openPdfModal = useCallback(() => {
+    const now = new Date();
+    const y   = now.getFullYear();
+    const m   = String(now.getMonth() + 1).padStart(2, '0');
+    const dd  = String(now.getDate()).padStart(2, '0');
+    setPdfFrom(`${y}-${m}-01`);
+    setPdfTo(`${y}-${m}-${dd}`);
+    setPdfModal(true);
+  }, []);
 
   // Push notifications locales (@react-native-community/push-notification-ios)
   const handleRappelToggle = useCallback(async (val) => {
@@ -382,6 +459,80 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
           <div style="font-size:11px; color:#888; margin-top:6px;">${(total/objectif.montant*100).toFixed(1)}% atteint — ${fmtPDF(total)} / ${fmtPDF(objectif.montant)}</div>
         </div>` : '';
 
+      // ── Budget — filtré par plage PDF ──────────────────────
+      const fmtD = (iso) => { if (!iso) return ''; const [yy,mm,dd] = iso.split('-'); return `${dd}/${mm}/${yy}`; };
+      const opsAll = (d.operations || []);
+      const opsFil = opsAll.filter(op => {
+        if (!pdfFrom || !pdfTo) return true;
+        const opDate = (op.date || '').slice(0, 10);
+        return opDate >= pdfFrom && opDate <= pdfTo;
+      });
+      const depenses     = opsFil.filter(o => o.type === 'depense');
+      const revenuOps    = opsFil.filter(o => o.type === 'revenu');
+      const epargneOps   = opsFil.filter(o => o.type === 'epargne');
+      const totalDep     = depenses.reduce((s, o) => s + (o.montant || 0), 0);
+      const totalRev     = revenuOps.reduce((s, o) => s + (o.montant || 0), 0);
+      const totalEpargne = epargneOps.reduce((s, o) => s + (o.montant || 0), 0);
+      const tauxEpargne  = (totalRev + totalEpargne) > 0
+        ? (totalEpargne / (totalRev + totalEpargne) * 100).toFixed(1)
+        : null;
+      const byCat = {};
+      depenses.forEach(o => { byCat[o.categorie || 'autre'] = (byCat[o.categorie || 'autre'] || 0) + (o.montant || 0); });
+      const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      const catIcons   = { alimentation:'🛒', transport:'🚗', logement:'🏠', loisirs:'🎭', sante:'💊', education:'📚', dividende:'💰', autre:'💼' };
+      const periodLabel = pdfFrom && pdfTo
+        ? `Du ${fmtD(pdfFrom)} au ${fmtD(pdfTo)}`
+        : opsFil.length > 0 ? 'Toutes les opérations' : '';
+
+      const budgetHtml = opsFil.length === 0 ? '' : `
+  <div style="padding:0 36px 28px;">
+    <div style="border-top:2px solid #eee; padding-top:24px; margin-bottom:16px;">
+      <div style="font-size:15px; font-weight:700; color:#222;">Budget & Revenus</div>
+      ${periodLabel ? `<div style="font-size:11px; color:#888; margin-top:2px;">${periodLabel}</div>` : ''}
+    </div>
+    <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+      <tr>
+        <td style="width:33%; padding-right:6px;">
+          <div style="background:#FFF0F0; border-radius:8px; padding:12px; text-align:center;">
+            <div style="font-size:10px; color:#888; margin-bottom:4px;">Dépenses</div>
+            <div style="font-size:16px; font-weight:700; color:#E74C3C;">${fmtPDF(totalDep)}</div>
+          </div>
+        </td>
+        <td style="width:33%; padding:0 3px;">
+          <div style="background:#F0FBF4; border-radius:8px; padding:12px; text-align:center;">
+            <div style="font-size:10px; color:#888; margin-bottom:4px;">Revenus</div>
+            <div style="font-size:16px; font-weight:700; color:#1E7A4A;">${fmtPDF(totalRev)}</div>
+          </div>
+        </td>
+        <td style="width:33%; padding-left:6px;">
+          <div style="background:#EFF6FF; border-radius:8px; padding:12px; text-align:center;">
+            <div style="font-size:10px; color:#888; margin-bottom:4px;">Épargne investie</div>
+            <div style="font-size:16px; font-weight:700; color:#1A3A7A;">${fmtPDF(totalEpargne)}</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+    ${tauxEpargne ? `<div style="background:#F0FBF4; border-radius:8px; padding:10px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:12px; color:#555;">Taux d'épargne</span><span style="font-size:15px; font-weight:700; color:#1E7A4A;">${tauxEpargne}%</span></div>` : ''}
+    ${catEntries.length > 0 ? `
+    <div style="font-size:11px; font-weight:600; color:#555; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Dépenses par catégorie</div>
+    <table style="width:100%; border-collapse:collapse; border:1px solid #eee; border-radius:8px; overflow:hidden;">
+      ${catEntries.map(([cat, montant]) => {
+        const pct  = totalDep > 0 ? (montant / totalDep * 100).toFixed(1) : '0';
+        const barW = totalDep > 0 ? Math.round(montant / totalDep * 100) : 0;
+        return `<tr>
+          <td style="padding:8px 12px; font-size:11px; color:#333; border-bottom:1px solid #f5f5f5;">${catIcons[cat] || '💼'} ${cat}</td>
+          <td style="padding:8px 12px; text-align:right; font-weight:600; font-size:11px; color:#E74C3C; white-space:nowrap; border-bottom:1px solid #f5f5f5;">${fmtPDF(montant)}</td>
+          <td style="padding:8px 12px; text-align:right; color:#888; font-size:10px; border-bottom:1px solid #f5f5f5;">${pct}%</td>
+          <td style="padding:8px 12px; border-bottom:1px solid #f5f5f5; vertical-align:middle;">
+            <div style="background:#eee; border-radius:3px; height:5px; width:100px;">
+              <div style="background:#E74C3C; border-radius:3px; height:5px; width:${barW}px;"></div>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table>` : ''}
+  </div>`;
+
       const html = `
 <!DOCTYPE html>
 <html>
@@ -429,8 +580,13 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
       </tfoot>
     </table>
 
-    <!-- Pied de page -->
-    <div style="margin-top:32px; padding-top:16px; border-top:1px solid #eee; font-size:11px; color:#aaa; text-align:center;">
+  </div>
+
+  ${budgetHtml}
+
+  <!-- Pied de page -->
+  <div style="padding:0 36px 28px;">
+    <div style="padding-top:16px; border-top:1px solid #eee; font-size:11px; color:#aaa; text-align:center;">
       Document généré par PatriMoi v1.6 · ${date}
     </div>
   </div>
@@ -456,7 +612,7 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
     } finally {
       setExportingPDF(false);
     }
-  }, [data, objectif, nomComplet]); // data peut être null → fallback INIT intégré
+  }, [data, objectif, nomComplet, pdfFrom, pdfTo]); // eslint-disable-line
 
   // Export CSV — pure JS, toujours fonctionnel (pas de module natif)
   const handleExportCSV = useCallback(async () => {
@@ -530,7 +686,7 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
       { label:'Synthese hebdo marches',      right:<Toggle on={hebdo}   onChange={v => { setHebdo(v);   savePrefs({ hebdo:v });   }}/> },
     ]},
     { title:'Données & Export', items:[
-      { label: exportingPDF ? 'Generation du PDF...' : 'Exporter en PDF', right: exportingPDF ? '⏳' : '›', onPress: exportingPDF ? null : handleExportPDF },
+      { label: exportingPDF ? 'Generation du PDF...' : 'Exporter en PDF', right: exportingPDF ? '⏳' : '›', onPress: exportingPDF ? null : openPdfModal },
       { label:'Exporter en CSV',              right:'›',  onPress: handleExportCSV },
       { label:'Importer releve bancaire CSV', right:'📥', onPress: () => { setImportText(''); setImportResult(null); setImportVisible(true); } },
       { label:'Supprimer mon compte', right:<Text style={{ color:C.sec }}>›</Text>, onPress:() => Alert.alert('Suppression', 'Contactez zineddine.othmane1@gmail.com pour supprimer votre compte.') },
@@ -599,6 +755,46 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
             </Card>
           </View>
         ))}
+
+        {/* Alertes Cours BVC */}
+        <Text style={{ fontSize:11, fontWeight:'600', color:C.g3, marginTop:14, marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Alertes Cours BVC</Text>
+        <Card style={{ padding:14 }}>
+          {bvcAlerts.length === 0 ? (
+            <Text style={{ fontSize:12, color:C.g3, marginBottom:12, lineHeight:18 }}>
+              Recevez une notification dès qu'un cours franchit un seuil que vous définissez.
+            </Text>
+          ) : (
+            bvcAlerts.map((a, idx) => (
+              <View key={a.id} style={{ flexDirection:'row', alignItems:'center', paddingVertical:10, borderBottomWidth: idx < bvcAlerts.length - 1 ? 1 : 0, borderBottomColor:C.g1 }}>
+                <View style={{ flex:1 }}>
+                  <View style={{ flexDirection:'row', alignItems:'center', gap:6 }}>
+                    <View style={{ backgroundColor: a.enabled ? C.priL : C.g1, borderRadius:6, paddingHorizontal:8, paddingVertical:2 }}>
+                      <Text style={{ fontSize:12, fontWeight:'700', color: a.enabled ? C.pri : C.g3 }}>{a.ticker}</Text>
+                    </View>
+                    {a.seuilHaut > 0 && <Text style={{ fontSize:11, color:C.gpos }}>▲ {a.seuilHaut.toLocaleString('fr-FR')} DH</Text>}
+                    {a.seuilBas  > 0 && <Text style={{ fontSize:11, color:C.rneg }}>▼ {a.seuilBas.toLocaleString('fr-FR')} DH</Text>}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => handleToggleAlert(idx)} style={{ marginRight:8 }}>
+                  <Text style={{ fontSize:11, color: a.enabled ? C.gpos : C.g3 }}>{a.enabled ? '●' : '○'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleEditAlert(idx)} style={{ marginRight:10 }}>
+                  <Text style={{ fontSize:11, color:C.pri }}>Éditer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteAlert(idx)}>
+                  <Text style={{ fontSize:11, color:C.sec }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+          <TouchableOpacity
+            onPress={handleOpenAddAlert}
+            style={{ marginTop: bvcAlerts.length > 0 ? 10 : 0, backgroundColor:C.priL, borderRadius:8, paddingVertical:10, alignItems:'center' }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize:13, fontWeight:'600', color:C.pri }}>+ Ajouter une alerte</Text>
+          </TouchableOpacity>
+        </Card>
 
         {/* Objectif patrimonial */}
         <Text style={{ fontSize:11, fontWeight:'600', color:C.g3, marginTop:14, marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Objectif Patrimonial</Text>
@@ -857,6 +1053,120 @@ export default function PageParams({ onSignOut, onObjectifChange, onTrackingStar
               </Text>
             </Card>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal — Alerte BVC */}
+      <Modal visible={alertModal} transparent animationType="slide" onRequestClose={() => setAlertModal(false)}>
+        <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.55)', justifyContent:'flex-end' }}>
+          <View style={{ backgroundColor:C.white, borderTopLeftRadius:20, borderTopRightRadius:20, padding:24 }}>
+            <Text style={{ fontWeight:'700', fontSize:15, color:C.dark, marginBottom:14 }}>
+              {editAlertIdx >= 0 ? 'Modifier l\'alerte' : 'Nouvelle alerte BVC'}
+            </Text>
+            <Text style={{ fontSize:11, color:C.g3, marginBottom:6 }}>Ticker (ex : ATW, IAM, BCP)</Text>
+            <TextInput
+              value={alertTicker}
+              onChangeText={t => setAlertTicker(t.toUpperCase())}
+              placeholder="ATW"
+              placeholderTextColor={C.g3}
+              autoCapitalize="characters"
+              style={{
+                borderWidth:1.5, borderColor:C.g2, borderRadius:10,
+                fontSize:14, paddingHorizontal:14, paddingVertical:12,
+                color:C.dark, backgroundColor:C.g1, marginBottom:14,
+              }}
+            />
+            <Text style={{ fontSize:11, color:C.g3, marginBottom:6 }}>Seuil haut — notifier si cours ≥ (laisser vide = aucun)</Text>
+            <TextInput
+              value={alertHaut}
+              onChangeText={setAlertHaut}
+              placeholder="ex : 150"
+              placeholderTextColor={C.g3}
+              keyboardType="decimal-pad"
+              style={{
+                borderWidth:1.5, borderColor:C.g2, borderRadius:10,
+                fontSize:14, paddingHorizontal:14, paddingVertical:12,
+                color:C.dark, backgroundColor:C.g1, marginBottom:14,
+              }}
+            />
+            <Text style={{ fontSize:11, color:C.g3, marginBottom:6 }}>Seuil bas — notifier si cours ≤ (laisser vide = aucun)</Text>
+            <TextInput
+              value={alertBas}
+              onChangeText={setAlertBas}
+              placeholder="ex : 120"
+              placeholderTextColor={C.g3}
+              keyboardType="decimal-pad"
+              style={{
+                borderWidth:1.5, borderColor:C.g2, borderRadius:10,
+                fontSize:14, paddingHorizontal:14, paddingVertical:12,
+                color:C.dark, backgroundColor:C.g1, marginBottom:16,
+              }}
+            />
+            <View style={{ flexDirection:'row', gap:8 }}>
+              <TouchableOpacity
+                onPress={() => setAlertModal(false)}
+                style={{ flex:1, paddingVertical:13, borderRadius:10, alignItems:'center', backgroundColor:C.g1 }}
+              >
+                <Text style={{ color:C.g3, fontWeight:'600' }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveAlert}
+                style={{ flex:2, paddingVertical:13, borderRadius:10, alignItems:'center', backgroundColor:C.pri }}
+              >
+                <Text style={{ color:C.white, fontWeight:'700' }}>Enregistrer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal — Plage de dates export PDF */}
+      <Modal visible={pdfModal} transparent animationType="slide" onRequestClose={() => setPdfModal(false)}>
+        <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.55)', justifyContent:'flex-end' }}>
+          <View style={{ backgroundColor:C.white, borderTopLeftRadius:20, borderTopRightRadius:20, padding:24 }}>
+            <Text style={{ fontWeight:'700', fontSize:15, color:C.dark, marginBottom:4 }}>Export PDF — Plage de dates</Text>
+            <Text style={{ fontSize:12, color:C.g3, marginBottom:16, lineHeight:18 }}>
+              Filtrer les opérations budget/revenus incluses dans le rapport. Laissez vide pour tout inclure.
+            </Text>
+            <Text style={{ fontSize:11, color:C.g3, marginBottom:6 }}>De (YYYY-MM-DD)</Text>
+            <TextInput
+              value={pdfFrom}
+              onChangeText={setPdfFrom}
+              placeholder="2026-01-01"
+              placeholderTextColor={C.g3}
+              style={{
+                borderWidth:1.5, borderColor:C.g2, borderRadius:10,
+                fontSize:14, paddingHorizontal:14, paddingVertical:12,
+                color:C.dark, backgroundColor:C.g1, marginBottom:14,
+              }}
+            />
+            <Text style={{ fontSize:11, color:C.g3, marginBottom:6 }}>À (YYYY-MM-DD)</Text>
+            <TextInput
+              value={pdfTo}
+              onChangeText={setPdfTo}
+              placeholder="2026-12-31"
+              placeholderTextColor={C.g3}
+              style={{
+                borderWidth:1.5, borderColor:C.g2, borderRadius:10,
+                fontSize:14, paddingHorizontal:14, paddingVertical:12,
+                color:C.dark, backgroundColor:C.g1, marginBottom:16,
+              }}
+            />
+            <View style={{ flexDirection:'row', gap:8 }}>
+              <TouchableOpacity
+                onPress={() => setPdfModal(false)}
+                style={{ flex:1, paddingVertical:13, borderRadius:10, alignItems:'center', backgroundColor:C.g1 }}
+              >
+                <Text style={{ color:C.g3, fontWeight:'600' }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setPdfModal(false); handleExportPDF(); }}
+                style={{ flex:2, paddingVertical:13, borderRadius:10, alignItems:'center', backgroundColor:C.pri }}
+              >
+                <Text style={{ color:C.white, fontWeight:'700' }}>Générer le PDF</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
