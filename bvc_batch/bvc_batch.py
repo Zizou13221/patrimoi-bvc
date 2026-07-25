@@ -45,6 +45,8 @@ TICKERS = {
     "TMA":  "MA0000011926",  # Total Maroc
     "LBV":  "MA0000011919",  # Label Vie
     "MUT":  "MA0000011914",  # Mutandis
+    # Santé & Medtech
+    "T2S":  "MA0000012858",  # T2S Group Holding (IPO 28/07/2026)
 }
 
 HEADERS = {

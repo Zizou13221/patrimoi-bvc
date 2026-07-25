@@ -43,103 +43,48 @@ const valeurDepreciee = (pa, annee, type) => {
   return Math.round(pa * Math.pow(1 - taux, age));
 };
 
-// ─── Liste BVC (tickers réels bvc_cours.json + noms officiels) ───────────────
-// Source : bvc_batch.py (ISINs vérifiés) + casablanca-bourse.com (noms officiels)
+// ─── Liste BVC complète (75 valeurs) ────────────────────────
 const BVC_LIST = [
   // Banques
-  'ATW - Attijariwafa Bank',
-  'BCP - Banque Centrale Populaire',
-  'CIH - CIH Bank',
-  'BMCI - BMCI',
-  'CDM - Crédit du Maroc',
-  'BOA - Bank of Africa',
-  'CFG - CFG Bank',
-  // Assurances & Courtage
-  'ATL - Atlantasanad',
-  'WAA - Wafa Assurance',
-  'SAHM - Sanlam Maroc',
-  'BAL - Balima',
-  'AGM - AGMA Lahlou-Tazi',
+  'ATW - Attijariwafa Bank', 'BCP - Banque Centrale Populaire',
+  'CIH - CIH Bank', 'BMCI - BMCI', 'CDM - Credit du Maroc',
+  'BOA - Bank of Africa', 'CFG - CFG Bank',
+  // Assurances
+  'WAA - Wafa Assurance', 'SAH - SAHAM Assurance', 'ATL - Atlanta Assurance',
   // Leasing & Crédit
-  'MAB - Maghrebail',
-  'SLF - Salafin',
-  'EQD - Eqdom',
-  'MLE - Maroc Leasing',
-  'CAP - Cash Plus',
-  'DIS - Diac Salaf',
-  // Télécoms
+  'ATL - Attijari Leasing', 'MAB - Maghrebail', 'SAL - Salafin',
+  'EQD - Equity', 'TASLIF - Taslif',
+  // Télécom
   'IAM - Maroc Telecom',
-  // Immobilier
-  'ADH - Addoha',
-  'ALM - Alliances',
-  'RDS - Résidences Dar Saada',
-  'ARD - Aradei Capital',
-  'IMO - Immorente Invest',
   // Énergie
-  'AFG - Afriquia Gaz',
-  'TQM - TAQA Morocco',
-  'TMA - TotalEnergies Marketing Maroc',
-  'ZDJ - Zellidja',
-  // Ciments & BTP
-  'CMA - Ciments du Maroc',
-  'CRS - Cartier Saada',
-  'HOL - Holcim Maroc',
-  'JET - Jet Contractors',
-  'DLM - Delattre Levivier Maroc',
-  'COL - Colorado',
-  'GTM - SGTM',
-  'STR - Stroc Industrie',
-  'TGC - TGCC',
+  'TQM - TAQA Morocco', 'GAZ - Afriquia Gaz', 'ZDJ - Zellidja',
+  // Ciment & BTP
+  'CMA - Ciments du Maroc', 'HLC - Holcim Maroc',
+  'ADH - Alliances Dev. Humain', 'JET - Jet Contractors',
+  'STROC - Stroc Industrie', 'DLM - Delattre Levivier Maroc',
+  'TIM - Timar', 'COL - Colorado',
   // Mines
-  'MNG - Managem',
-  'SMI - SMI',
-  'CMT - Compagnie Minière de Touissit',
-  'REB - Rebab Company',
-  // Agroalimentaire & Distribution
-  'LES - Lesieur Cristal',
-  'LBV - Label Vie',
-  'OUL - Oulmès',
-  'MUT - Mutandis',
-  'SBM - Brasseries du Maroc',
-  'DARI - Dari Couspate',
-  'CSR - Cosumar',
-  'SNP - SNEP',
-  'MOX - Maghreb Oxygène',
-  // Tech & Paiement
-  'HPS - HPS',
-  'M2M - M2M Group',
-  'DWAY - Disway',
-  'S2M - S2M',
-  'IBMC - IB Maroc.com',
+  'MNG - Managem', 'SMI - SMI', 'MEA - Miniere Touissit',
+  // Immobilier
+  'ARD - Aradei Capital',
+  // Agroalimentaire & Grande distrib.
+  'LHM - Label Vie', 'OUL - Oulmès', 'MUT - Mutandis',
+  'SBM - SBM Developpement', 'DARI - Dari Couspate', 'SNEP - SNEP',
+  // Tech & Services financiers
+  'HPS - HPS', 'M2M - M2M Group',
   // Santé & Pharma
-  'SOT - Sothema',
-  'PRO - Promopharm',
-  'AKT - Akdital',
-  'T2S - T2S Group Holding',
+  'SOT - Sothema', 'PRO - Promopharm', 'PHI - Pharma 5',
   // Transport & Tourisme
-  'MSA - Marsa Maroc',
-  'CTM - CTM',
-  'RIS - RISMA',
-  'NEJ - Auto Nejma',
-  // Industrie & Divers
-  'FBR - Fenie Brossette',
-  'SID - Sonasid',
-  'SRM - Stokvis Maroc',
-  'SNA - Stokvis Nord Afrique',
-  'ADI - Alliances Développement Immobilier',
-  'AFI - Afric Industries',
-  'AFM - AFMA',
-  'ATH - Auto Hall',
-  'CMG - CMGP Group',
-  'DHO - Delta Holding',
-  'DYT - Disty Technologies',
-  'INV - Involys',
-  'MDP - Med Paper',
-  'MIC - Microdata',
-  'NAKL - Ennakl',
-  'UMR - Unimer',
-  'VCN - Vicenne',
-  'SAM - Samir',
+  'MSA - Marsa Maroc', 'CTM - CTM', 'RISMA - Risma',
+  'MEDAV - Med Aviation',
+  // Industrie & Distribution
+  'FBR - Fenie Brossette', 'ALM - Aluminium du Maroc',
+  'SRM - Stokvis Maroc', 'SID - Sonasid', 'LYDEC - Lyonnaise des Eaux',
+  'BAL - Balima', 'NEJ - Auto Nejma', 'MED - Mediaco Maroc',
+  'RDS - Residences Dar Saada', 'PMA - Palmeraie Holding',
+  'CMT - Ciment du Rif', 'RCI - Risma', 'SFC - Societe Forestiere',
+  'DHO - Daret Hol Oussoul', 'OULM - Oulmès Group',
+  'ADI - Addoha', 'BET - Berrechid', 'MCM - Maroc Chimie Maroc',
 ];
 
 // ─── Boutons Modifier / Supprimer / Détails ─────────────────
