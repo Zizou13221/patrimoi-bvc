@@ -1,8 +1,8 @@
 {
-  "updated": "2026-07-30T08:00:19.847543+00:00",
+  "updated": "2026-07-30T09:00:18.473536+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
-  "succes": 83,
+  "succes": 82,
   "echecs": 0,
   "cours": {
     "ADH": {
@@ -88,10 +88,6 @@
     "CMG": {
       "cours": 320.0,
       "var_pct": 0.31
-    },
-    "CMT": {
-      "cours": 4350.0,
-      "var_pct": -3.65
     },
     "COL": {
       "cours": 78.0,
