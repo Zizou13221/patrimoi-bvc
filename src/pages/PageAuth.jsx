@@ -217,7 +217,7 @@ export default function PageAuth({ onAuthenticated, onDemo }) {
                 <Text
                   style={{ color: 'rgba(108,142,247,0.85)', textDecorationLine: 'underline' }}
                   onPress={() => {
-                    try { require('react-native').Linking.openURL('https://zineddineothmane.github.io/PatriMoi/privacy-policy.html'); } catch {}
+                    try { require('react-native').Linking.openURL('https://zizou13221.github.io/patrimoi-bvc/privacy-policy.html'); } catch {}
                   }}
                 >
                   Conditions d'utilisation et Politique de confidentialité
