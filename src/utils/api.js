@@ -125,15 +125,15 @@ export async function fetchBVC(forceRefresh = false) {
     return _bvcCache.data;
   }
 
-  // 1. Proxy Supabase → TradingView Scanner (source principale — tous tickers, décimale précise)
-  if (__DEV__) console.log('[BVC] fetchBVC: proxy Supabase (TradingView)...');
-  let data = await proxyFetch('bvc');
-  if (data?.cours && __DEV__) console.log('[BVC] proxy:', Object.keys(data.cours).length, 'tickers');
+  // 1. GitHub Actions JSON (source principale — pas de CORS, public, no auth)
+  if (__DEV__) console.log('[BVC] fetchBVC: GitHub...');
+  let data = await fetchBVCFromGitHub();
 
-  // 2. Fallback : GitHub bvc_cours.json (si proxy indisponible)
+  // 2. Fallback : proxy Supabase Edge Function
   if (!data?.cours || Object.keys(data.cours).length === 0) {
-    if (__DEV__) console.log('[BVC] proxy vide → fallback GitHub...');
-    data = await fetchBVCFromGitHub();
+    if (__DEV__) console.log('[BVC] GitHub vide → proxy Supabase...');
+    data = await proxyFetch('bvc');
+    if (data?.cours && __DEV__) console.log('[BVC] proxy:', Object.keys(data.cours).length, 'tickers');
   }
 
   if (data?.cours && Object.keys(data.cours).length > 0) {

@@ -59,7 +59,6 @@ cp "$SRC/src/utils/conseils.js"        "$DST/src/utils/conseils.js"        && ec
 cp "$SRC/src/utils/keychainStorage.js" "$DST/src/utils/keychainStorage.js" && echo "✓ keychainStorage.js"
 cp "$SRC/src/utils/env.js"            "$DST/src/utils/env.js"            && echo "✓ env.js (T6 — Supabase config centralisée)"
 cp "$SRC/src/utils/pinHash.js"        "$DST/src/utils/pinHash.js"        && echo "✓ pinHash.js (T2 — SHA-256 PIN)"
-cp "$SRC/src/utils/bvcAlerts.js"      "$DST/src/utils/bvcAlerts.js"      && echo "✓ bvcAlerts.js (alertes cours BVC)"
 
 # Store slices (modifiés)
 mkdir -p "$DST/src/store/slices"

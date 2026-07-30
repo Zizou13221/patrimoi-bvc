@@ -7,7 +7,7 @@ import {
   calcCT, calcCTCout, calcOr, calcImmo, calcTransport,
   valImmo, valTransport, valOr,
 } from '../utils/calc';
-import { fmt, fmtN, fmtCours, pctDiff } from '../utils/fmt';
+import { fmt, fmtN, pctDiff } from '../utils/fmt';
 import { getBvcCache, fetchPrixOr, fetchDevises } from '../utils/api';
 import {
   Card, BtnPri, BtnSec, PLBadge, IconBox,
@@ -43,90 +43,48 @@ const valeurDepreciee = (pa, annee, type) => {
   return Math.round(pa * Math.pow(1 - taux, age));
 };
 
-// ─── Liste BVC — ordre alphabétique par nom de société ───────────────────────
-// Source : casablanca-bourse.com (noms officiels) + TradingView CSEMA (tickers)
+// ─── Liste BVC complète (75 valeurs) ────────────────────────
 const BVC_LIST = [
-  'ADH - Addoha',
-  'AFM - AFMA',
-  'AFI - Afric Industries',
-  'AFG - Afriquia Gaz',
-  'AGM - AGMA SA',
-  'AKT - Akdital',
-  'ADI - Alliances',
-  'ALM - Aluminium du Maroc',
-  'ARD - Aradei Capital',
-  'ATL - Atlantasanad',
-  'ATW - Attijariwafa Bank',
-  'ATH - Auto Hall',
-  'NEJ - Auto Nejma',
-  'BAL - Balima',
-  'BOA - Bank of Africa',
-  'BCP - Banque Centrale Populaire',
-  'BMCI - BMCI',
-  'CRS - Cartier Saada',
-  'CAP - Cash Plus',
-  'CFG - CFG Bank',
-  'CIH - CIH Bank',
-  'CMA - Ciments du Maroc',
-  'CMG - CMGP Group',
-  'COL - Colorado',
-  'CMT - Compagnie Minière de Touissit',
-  'CSR - Cosumar',
-  'CDM - Crédit du Maroc',
-  'CTM - CTM',
-  'DARI - Dari Couspate',
-  'DLM - Delattre Levivier Maroc',
-  'DHO - Delta Holding',
-  'DIS - Diac Salaf',
-  'DYT - Disty Technologies',
-  'DWAY - Disway',
-  'NAKL - Ennakl',
-  'EQD - Eqdom',
-  'FBR - Fenie Brossette',
-  'HOL - Holcim Maroc',
-  'HPS - HPS',
-  'IBMC - IB Maroc.com',
-  'IMO - Immorente Invest',
-  'INV - Involys',
-  'JET - Jet Contractors',
-  'LBV - Label Vie',
-  'LES - Lesieur Cristal',
-  'M2M - M2M Group',
-  'MOX - Maghreb Oxygène',
-  'MAB - Maghrebail',
-  'MNG - Managem',
-  'MLE - Maroc Leasing',
+  // Banques
+  'ATW - Attijariwafa Bank', 'BCP - Banque Centrale Populaire',
+  'CIH - CIH Bank', 'BMCI - BMCI', 'CDM - Credit du Maroc',
+  'BOA - Bank of Africa', 'CFG - CFG Bank',
+  // Assurances
+  'WAA - Wafa Assurance', 'SAH - SAHAM Assurance', 'ATL - Atlanta Assurance',
+  // Leasing & Crédit
+  'ATL - Attijari Leasing', 'MAB - Maghrebail', 'SAL - Salafin',
+  'EQD - Equity', 'TASLIF - Taslif',
+  // Télécom
   'IAM - Maroc Telecom',
-  'MSA - Marsa Maroc',
-  'MDP - Med Paper',
-  'MIC - Microdata',
-  'MUT - Mutandis',
-  'OUL - Oulmès',
-  'PRO - Promopharm',
-  'SRM - Réalisations Mécaniques',
-  'REB - Rebab Company',
-  'RDS - Résidences Dar Saada',
-  'RIS - RISMA',
-  'S2M - S2M',
-  'SLF - Salafin',
-  'SAM - Samir',
-  'SAHM - Sanlam Maroc',
-  'GTM - SGTM',
-  'SMI - SMI',
-  'SNP - SNEP',
-  'SBM - Société des Boissons du Maroc',
-  'SID - Sonasid',
-  'SOT - Sothema',
-  'SNA - Stokvis Nord Afrique',
-  'STR - Stroc Industrie',
-  'T2S - T2S Group Holding',
-  'TQM - TAQA Morocco',
-  'TGC - TGCC',
-  'TMA - TotalEnergies Marketing Maroc',
-  'UMR - Unimer',
-  'VCN - Vicenne',
-  'WAA - Wafa Assurance',
-  'ZDJ - Zellidja',
+  // Énergie
+  'TQM - TAQA Morocco', 'GAZ - Afriquia Gaz', 'ZDJ - Zellidja',
+  // Ciment & BTP
+  'CMA - Ciments du Maroc', 'HLC - Holcim Maroc',
+  'ADH - Alliances Dev. Humain', 'JET - Jet Contractors',
+  'STROC - Stroc Industrie', 'DLM - Delattre Levivier Maroc',
+  'TIM - Timar', 'COL - Colorado',
+  // Mines
+  'MNG - Managem', 'SMI - SMI', 'MEA - Miniere Touissit',
+  // Immobilier
+  'ARD - Aradei Capital',
+  // Agroalimentaire & Grande distrib.
+  'LHM - Label Vie', 'OUL - Oulmès', 'MUT - Mutandis',
+  'SBM - SBM Developpement', 'DARI - Dari Couspate', 'SNEP - SNEP',
+  // Tech & Services financiers
+  'HPS - HPS', 'M2M - M2M Group',
+  // Santé & Pharma
+  'SOT - Sothema', 'PRO - Promopharm', 'PHI - Pharma 5',
+  // Transport & Tourisme
+  'MSA - Marsa Maroc', 'CTM - CTM', 'RISMA - Risma',
+  'MEDAV - Med Aviation',
+  // Industrie & Distribution
+  'FBR - Fenie Brossette', 'ALM - Aluminium du Maroc',
+  'SRM - Stokvis Maroc', 'SID - Sonasid', 'LYDEC - Lyonnaise des Eaux',
+  'BAL - Balima', 'NEJ - Auto Nejma', 'MED - Mediaco Maroc',
+  'RDS - Residences Dar Saada', 'PMA - Palmeraie Holding',
+  'CMT - Ciment du Rif', 'RCI - Risma', 'SFC - Societe Forestiere',
+  'DHO - Daret Hol Oussoul', 'OULM - Oulmès Group',
+  'ADI - Addoha', 'BET - Berrechid', 'MCM - Maroc Chimie Maroc',
 ];
 
 // ─── Boutons Modifier / Supprimer / Détails ─────────────────
@@ -887,7 +845,7 @@ function SubPEA({ data, setData, onBack }) {
                 {/* Ligne détails */}
                 <View style={{ paddingHorizontal:12, paddingBottom:6 }}>
                   <Text style={{ fontSize:10, color:C.g3 }}>
-                    {t.qty} titres · PRU {fmtCours(t.pru)} · Cours {fmtCours(t.cours)}
+                    {t.qty} titres · PRU {t.pru.toFixed(2)} · Cours {t.cours.toFixed(2)}
                     {mois !== null ? `  ·  ${mois} mois${mois >= 60 ? ' ✓ Exo.' : ''}` : ''}
                   </Text>
                 </View>
@@ -922,11 +880,11 @@ function SubPEA({ data, setData, onBack }) {
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>PRU (coût moy. pondéré)</Text>
-                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.pru)}</Text>
+                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.pru.toFixed(2)} DH</Text>
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>Cours actuel</Text>
-                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.cours)}</Text>
+                        <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.cours.toFixed(2)} DH</Text>
                       </View>
                       <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                         <Text style={{ fontSize:11, color:C.g3 }}>Coût de revient</Text>
@@ -1257,7 +1215,7 @@ function SubCT({ data, setData, onBack }) {
                     {/* Ligne détails */}
                     <View style={{ paddingHorizontal:12, paddingBottom:6 }}>
                       <Text style={{ fontSize:10, color:C.g3 }}>
-                        {t.qty} titres · PRU {fmtCours(t.pru)} · Cours {fmtCours(t.cours)}
+                        {t.qty} titres · PRU {t.pru.toFixed(2)} · Cours {t.cours.toFixed(2)}
                         {mois !== null ? `  ·  ${mois} mois` : ''}
                       </Text>
                     </View>
@@ -1290,11 +1248,11 @@ function SubCT({ data, setData, onBack }) {
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>PRU (coût moy. pondéré)</Text>
-                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.pru)}</Text>
+                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.pru.toFixed(2)} DH</Text>
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>Cours actuel</Text>
-                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{fmtCours(t.cours)}</Text>
+                            <Text style={{ fontSize:11, fontWeight:'600', color:C.dark }}>{t.cours.toFixed(2)} DH</Text>
                           </View>
                           <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
                             <Text style={{ fontSize:11, color:C.g3 }}>Coût de revient</Text>

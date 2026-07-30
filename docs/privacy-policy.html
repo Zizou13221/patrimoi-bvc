@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Politique de Confidentialité — PatriMoi</title>
+  <style>
+    :root {
+      --pri:   #0F1117;
+      --card:  #1A1D27;
+      --acc:   #6C8EF7;
+      --text:  #E8F4E8;
+      --muted: rgba(180,230,200,0.65);
+      --green: #2ECC71;
+      --border: rgba(255,255,255,0.08);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--pri);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0D1520 0%, #152035 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .logo-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: rgba(108,142,247,0.2);
+      border: 1.5px solid rgba(108,142,247,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+    }
+    .logo-text { text-align: left; }
+    .logo-text .app-name { font-size: 22px; font-weight: 800; color: #fff; }
+    .logo-text .tagline  { font-size: 12px; color: var(--muted); }
+    header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    header p  { color: var(--muted); font-size: 14px; }
+    .badge {
+      display: inline-block;
+      margin-top: 16px;
+      background: rgba(46,204,113,0.12);
+      border: 1px solid rgba(46,204,113,0.3);
+      color: var(--green);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* ── Layout ─────────────────────────────── */
+    .container { max-width: 800px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* ── TOC ─────────────────────────────────── */
+    .toc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    .toc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+    .toc ol  { padding-left: 20px; }
+    .toc li  { margin-bottom: 6px; }
+    .toc a   { color: var(--acc); text-decoration: none; font-size: 14px; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ────────────────────────────── */
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+    section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    section h2 .num {
+      background: rgba(108,142,247,0.18);
+      color: var(--acc);
+      border-radius: 8px;
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    section h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--acc);
+      margin: 18px 0 8px;
+    }
+    section p  { color: var(--muted); margin-bottom: 12px; }
+    section ul { color: var(--muted); padding-left: 20px; margin-bottom: 12px; }
+    section li { margin-bottom: 6px; }
+    section strong { color: var(--text); }
+
+    /* ── Table données ───────────────────────── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .data-table th {
+      background: rgba(108,142,247,0.12);
+      color: var(--acc);
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 10px 14px;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── Callout boxes ───────────────────────── */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 16px 0;
+      font-size: 13.5px;
+    }
+    .callout-green {
+      background: rgba(46,204,113,0.08);
+      border-left: 3px solid var(--green);
+      color: rgba(180,230,200,0.85);
+    }
+    .callout-blue {
+      background: rgba(108,142,247,0.08);
+      border-left: 3px solid var(--acc);
+      color: rgba(180,230,200,0.85);
+    }
+    .callout-orange {
+      background: rgba(243,156,18,0.08);
+      border-left: 3px solid #F39C12;
+      color: rgba(243,220,160,0.85);
+    }
+
+    /* ── Contact ─────────────────────────────── */
+    .contact-card {
+      background: rgba(108,142,247,0.08);
+      border: 1px solid rgba(108,142,247,0.25);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+    .contact-card p { color: var(--text); margin: 0; font-size: 14px; }
+    .contact-card a { color: var(--acc); }
+
+    /* ── Footer ─────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    footer a { color: var(--acc); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏦</div>
+    <div class="logo-text">
+      <div class="app-name">PatriMoi</div>
+      <div class="tagline">Votre Patrimoine. Votre Avenir.</div>
+    </div>
+  </div>
+  <h1>Politique de Confidentialité</h1>
+  <p>Application mobile iOS — Version 1.6</p>
+  <span class="badge">✓ Aucune publicité · Aucun tracking · Données chiffrées</span>
+</header>
+
+<div class="container">
+
+  <!-- ── Date mise à jour ── -->
+  <p style="color:var(--muted); font-size:13px; margin-bottom:28px; text-align:center;">
+    Dernière mise à jour : <strong style="color:var(--text);">Juillet 2026</strong>
+  </p>
+
+  <!-- ── TOC ── -->
+  <div class="toc">
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#collecte">Données collectées</a></li>
+      <li><a href="#utilisation">Comment nous utilisons vos données</a></li>
+      <li><a href="#stockage">Stockage et sécurité</a></li>
+      <li><a href="#partage">Partage avec des tiers</a></li>
+      <li><a href="#retention">Durée de conservation</a></li>
+      <li><a href="#droits">Vos droits (loi 09-08 / CNDP)</a></li>
+      <li><a href="#demo">Mode Démo</a></li>
+      <li><a href="#mineurs">Mineurs</a></li>
+      <li><a href="#modifications">Modifications</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>En bref :</strong> PatriMoi ne vend pas vos données, n'affiche pas de publicités, et ne partage aucune information financière avec des tiers commerciaux. Vos données patrimoniales sont chiffrées sur votre appareil et sur nos serveurs.
+  </div>
+
+  <!-- ── 1. Collecte ── -->
+  <section id="collecte">
+    <h2><span class="num">1</span>Données collectées</h2>
+
+    <h3>1.1 Données de compte</h3>
+    <p>Lorsque vous créez un compte PatriMoi, nous collectons :</p>
+    <ul>
+      <li><strong>Adresse email</strong> — identifiant unique, réinitialisation de mot de passe</li>
+      <li><strong>Prénom et nom</strong> — affichage dans l'application et vos rapports PDF</li>
+      <li><strong>Mot de passe</strong> — stocké sous forme hachée (jamais en clair)</li>
+    </ul>
+
+    <h3>1.2 Données patrimoniales</h3>
+    <p>Les données que vous saisissez librement dans l'application :</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Catégorie</th>
+          <th>Exemples de données</th>
+          <th>Hébergement</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Liquidités &amp; Devises</td>
+          <td>Montants en espèces, devises étrangères</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Argent en Banque</td>
+          <td>Noms de banques, soldes de comptes</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Compte sur Carnet</td>
+          <td>Taux, montants épargnés</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>PEA / Compte-Titre</td>
+          <td>Tickers BVC, quantités, prix d'achat</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Or &amp; Métaux Précieux</td>
+          <td>Grammes détenus, forme (lingot, pièce…)</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Immobilier &amp; Terrains</td>
+          <td>Valeur estimée, localisation (ville/région)</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Biens de Transport</td>
+          <td>Type de véhicule, prix d'achat, année</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Budget &amp; Dépenses</td>
+          <td>Catégories de dépenses, montants, descriptions</td>
+          <td>Supabase EU</td>
+        </tr>
+        <tr>
+          <td>Historique (snapshots)</td>
+          <td>Valeur totale du patrimoine horodatée</td>
+          <td>Supabase EU</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>1.3 Données de marché (non personnelles)</h3>
+    <p>PatriMoi récupère automatiquement des données publiques pour valoriser vos actifs :</p>
+    <ul>
+      <li>Cours des actions BVC (Bourse de Casablanca) — via scraping GitHub Actions</li>
+      <li>Prix de l'or (LBMA) — mis à jour quotidiennement</li>
+      <li>Taux de change BAM (bkam.ma) — 18 devises</li>
+    </ul>
+    <div class="callout callout-green">
+      Ces données de marché sont <strong>publiques et anonymes</strong>. Elles ne contiennent aucune information personnelle et sont mises en cache dans une table <code>market_cache</code> partagée, sans lien avec votre compte.
+    </div>
+
+    <h3>1.4 Données techniques minimales</h3>
+    <p>Automatiquement collectées lors de l'utilisation de l'application :</p>
+    <ul>
+      <li>Journaux d'erreurs (anonymisés) — pour corriger les bugs</li>
+      <li>Aucun identifiant publicitaire (IDFA non utilisé)</li>
+      <li>Aucun cookie de tracking</li>
+    </ul>
+  </section>
+
+  <!-- ── 2. Utilisation ── -->
+  <section id="utilisation">
+    <h2><span class="num">2</span>Comment nous utilisons vos données</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Donnée</th>
+          <th>Finalité</th>
+          <th>Base légale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Email</td>
+          <td>Authentification, récupération de mot de passe</td>
+          <td>Exécution du contrat</td>
+        </tr>
+        <tr>
+          <td>Prénom / Nom</td>
+          <td>Personnalisation de l'interface et des rapports PDF</td>
+          <td>Exécution du contrat</td>
+        </tr>
+        <tr>
+          <td>Données patrimoniales</td>
+          <td>Calcul du patrimoine net, graphiques, score de santé financière</td>
+          <td>Exécution du contrat</td>
+        </tr>
+        <tr>
+          <td>Historique (snapshots)</td>
+          <td>Graphiques d'évolution, calcul de rendement annualisé</td>
+          <td>Exécution du contrat</td>
+        </tr>
+        <tr>
+          <td>Budget &amp; dépenses</td>
+          <td>Calcul de la balance, taux d'épargne, export PDF</td>
+          <td>Exécution du contrat</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout callout-green">
+      <strong>Nous n'utilisons jamais vos données à des fins publicitaires, marketing, ou pour les revendre à des tiers.</strong>
+    </div>
+  </section>
+
+  <!-- ── 3. Stockage ── -->
+  <section id="stockage">
+    <h2><span class="num">3</span>Stockage et sécurité</h2>
+
+    <h3>3.1 Hébergement cloud</h3>
+    <p>Vos données sont stockées sur <strong>Supabase</strong> (PostgreSQL), dans une région <strong>Europe de l'Ouest (Irlande)</strong>, soumise au RGPD européen.</p>
+    <ul>
+      <li>Chaque utilisateur ne peut accéder qu'à ses propres données (Row Level Security)</li>
+      <li>Les connexions sont chiffrées en TLS 1.3</li>
+      <li>La base de données est chiffrée au repos (AES-256)</li>
+    </ul>
+
+    <h3>3.2 Stockage local sur l'appareil</h3>
+    <ul>
+      <li><strong>MMKV AES-128</strong> — stockage chiffré des préférences et cache local</li>
+      <li><strong>iOS Keychain</strong> — session Supabase, code PIN (haché SHA-256 + sel 128 bits), données biométriques</li>
+      <li>Attribut iOS <code>WHEN_UNLOCKED_THIS_DEVICE_ONLY</code> — les données Keychain ne sont pas sauvegardées sur iCloud</li>
+    </ul>
+
+    <h3>3.3 Code PIN</h3>
+    <p>Le code PIN 6 chiffres est stocké <strong>uniquement sur l'appareil</strong> (Keychain iOS local), sous forme hachée. Il n'est jamais transmis à nos serveurs. Un PIN oublié nécessite une réinitialisation des données locales.</p>
+
+    <div class="callout callout-orange">
+      <strong>Note :</strong> PatriMoi est actuellement distribué avec un compte Apple Developer Personnel. Le profil de provisionnement expire tous les 7 jours et doit être renouvelé manuellement. Ceci n'affecte pas la sécurité de vos données.
+    </div>
+  </section>
+
+  <!-- ── 4. Partage ── -->
+  <section id="partage">
+    <h2><span class="num">4</span>Partage avec des tiers</h2>
+    <p>PatriMoi ne partage vos données personnelles avec aucun tiers commercial. Les seuls sous-traitants techniques impliqués sont :</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Sous-traitant</th>
+          <th>Rôle</th>
+          <th>Localisation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Supabase Inc.</td>
+          <td>Base de données, authentification</td>
+          <td>Irlande (EU)</td>
+        </tr>
+        <tr>
+          <td>Apple Inc.</td>
+          <td>Distribution iOS (App Store), paiements in-app</td>
+          <td>États-Unis</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout callout-green">
+      <strong>Aucune donnée financière ou patrimoniale n'est jamais partagée</strong> avec des banques, courtiers, assureurs ou tout autre tiers.
+    </div>
+  </section>
+
+  <!-- ── 5. Rétention ── -->
+  <section id="retention">
+    <h2><span class="num">5</span>Durée de conservation</h2>
+    <ul>
+      <li><strong>Données de compte &amp; patrimoine</strong> — conservées tant que votre compte est actif</li>
+      <li><strong>Snapshots historiques</strong> — conservés tant que votre compte est actif (supprimés avec le compte)</li>
+      <li><strong>En cas de suppression du compte</strong> — toutes les données sont supprimées de nos serveurs dans les 30 jours</li>
+      <li><strong>Données locales</strong> — supprimées quand vous désinstallez l'application ou réinitialisez l'appareil</li>
+    </ul>
+    <p>Vous pouvez demander la suppression immédiate de votre compte directement depuis <strong>Paramètres → Supprimer mon compte</strong> dans l'application.</p>
+  </section>
+
+  <!-- ── 6. Droits ── -->
+  <section id="droits">
+    <h2><span class="num">6</span>Vos droits (loi 09-08 / CNDP)</h2>
+    <p>Conformément à la <strong>loi 09-08 relative à la protection des personnes physiques à l'égard du traitement des données à caractère personnel</strong> au Maroc, vous disposez des droits suivants :</p>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Droit</th>
+          <th>Comment l'exercer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Accès</strong></td>
+          <td>Toutes vos données sont visibles dans l'application. Export CSV/PDF disponible dans Paramètres.</td>
+        </tr>
+        <tr>
+          <td><strong>Rectification</strong></td>
+          <td>Modifiable directement dans l'application (profil, données patrimoniales)</td>
+        </tr>
+        <tr>
+          <td><strong>Suppression</strong></td>
+          <td>Paramètres → Supprimer mon compte (suppression immédiate et irréversible)</td>
+        </tr>
+        <tr>
+          <td><strong>Opposition</strong></td>
+          <td>Contactez-nous par email (voir section 10)</td>
+        </tr>
+        <tr>
+          <td><strong>Portabilité</strong></td>
+          <td>Export CSV depuis Paramètres → Exporter en CSV</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout callout-orange">
+      PatriMoi s'engage à se conformer à la <strong>loi 09-08</strong> relative à la protection des données à caractère personnel au Maroc. Pour toute question relative au traitement de vos données, contactez-nous à l'adresse indiquée en section 10.
+    </div>
+  </section>
+
+  <!-- ── 7. Mode Démo ── -->
+  <section id="demo">
+    <h2><span class="num">7</span>Mode Démo</h2>
+    <p>PatriMoi propose un <strong>mode démo 100 % local</strong> : aucun compte requis, aucune donnée transmise à nos serveurs. Toutes les données sont stockées uniquement sur l'appareil.</p>
+    <p>En mode démo, aucun email ni aucune information personnelle n'est collecté.</p>
+  </section>
+
+  <!-- ── 8. Mineurs ── -->
+  <section id="mineurs">
+    <h2><span class="num">8</span>Mineurs</h2>
+    <p>PatriMoi est destiné aux personnes de <strong>18 ans et plus</strong>. Nous ne collectons pas sciemment de données concernant des mineurs. Si vous pensez qu'un mineur a créé un compte, contactez-nous pour le supprimer.</p>
+  </section>
+
+  <!-- ── 9. Modifications ── -->
+  <section id="modifications">
+    <h2><span class="num">9</span>Modifications de cette politique</h2>
+    <p>Nous pouvons mettre à jour cette politique de confidentialité pour refléter des évolutions techniques ou légales. En cas de modification substantielle, vous serez informé via une notification dans l'application.</p>
+    <p>La date de dernière mise à jour est indiquée en haut de ce document. L'utilisation continue de PatriMoi après modification vaut acceptation de la nouvelle politique.</p>
+  </section>
+
+  <!-- ── 10. Contact ── -->
+  <section id="contact">
+    <h2><span class="num">10</span>Contact</h2>
+    <p>Pour toute question relative à cette politique ou pour exercer vos droits :</p>
+    <div class="contact-card">
+      <p><strong>PatriMoi</strong><br/>
+      Email : <a href="mailto:zineddine.othmane1@gmail.com">zineddine.othmane1@gmail.com</a><br/>
+      Maroc</p>
+    </div>
+    <p style="margin-top:14px;">Nous nous engageons à répondre à toute demande dans un délai de <strong>30 jours</strong>.</p>
+  </section>
+
+</div>
+
+<footer>
+  <p>© 2026 PatriMoi · <a href="mailto:zineddine.othmane1@gmail.com">Contact</a></p>
+  <p style="margin-top:6px;">Application iOS pour la gestion de patrimoine marocain</p>
+</footer>
+
+</body>
+</html>

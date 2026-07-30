@@ -32,21 +32,19 @@ TICKERS = {
     "WAA":  "MA0000011909",  # Wafa Assurance
     # Immobilier
     "ADH":  "MA0000011922",  # Addoha
-    "ADI":  "MA0000011924",  # Alliances (ticker CSEMA:ADI)
+    "ALM":  "MA0000011924",  # Alliances
     "RDS":  "MA0000011920",  # Résidences Dar Saada
     # Energie & Matières premières
     "AFG":  "MA0000011887",  # Afriquia Gaz
     "LHM":  "MA0000011930",  # Lesieur Cristal
     # Industrie
-    "HPS":  "MA0000011910",  # HPS
+    "HPS":  "MA0000011910",  # Hightech Payment Systems
     "MNG":  "MA0000011935",  # Managem
-    "MSA":  "MA0000011928",  # Marsa Maroc (SODEP)
+    "MSA":  "MA0000011928",  # Maghreb Steel (Aluminium Maroc)
     # Divers
     "TMA":  "MA0000011926",  # Total Maroc
     "LBV":  "MA0000011919",  # Label Vie
     "MUT":  "MA0000011914",  # Mutandis
-    # Santé & Medtech
-    "T2S":  "MA0000012858",  # T2S Group Holding (IPO 28/07/2026)
 }
 
 HEADERS = {
