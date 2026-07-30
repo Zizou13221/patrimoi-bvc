@@ -22,6 +22,7 @@ const PageDashboard = React.memo(function PageDashboard({
   const isOffline           = usePatrimoineStore(s => s.isOffline);
   const objectif            = usePatrimoineStore(s => s.objectif);
   const demoMode            = usePatrimoineStore(s => s.demoMode);
+  const isPremium           = usePatrimoineStore(s => s.isPremium);
   const trackingStartDate   = usePatrimoineStore(s => s.trackingStartDate);
   const setHistory          = usePatrimoineStore(s => s.setHistory);
   const [period, setPeriod] = useState('1A');
@@ -49,15 +50,17 @@ const PageDashboard = React.memo(function PageDashboard({
   const plPct    = cost > 0 ? ((pl / cost) * 100) : 0;
   const activeCats = cats.filter(c => c.val > 0).length;
 
-  // ── Auto-snapshot journalier ──────────────────────────────
+  // ── Auto-snapshot journalier (PatriMoi+ uniquement) ──────
+  // Compte gratuit : sync patrimoine JSONB de base ✓
+  // PatriMoi+      : + historique snapshots (graphique évolution) ✓
   useEffect(() => {
-    if (demoMode || total <= 0) return;
+    if (demoMode || total <= 0 || !isPremium) return;
     const today = new Date().toISOString().slice(0, 10);
     const alreadyToday = history?.some(h => h.date === today);
     if (!alreadyToday) {
       setHistory(h => upsertSnapshot(h || [], today, total));
     }
-  }, [total, demoMode]); // eslint-disable-line
+  }, [total, demoMode, isPremium]); // eslint-disable-line
 
   // ── Delta mensuel (variation depuis début du mois) ────────
   const monthDelta = useMemo(() => {

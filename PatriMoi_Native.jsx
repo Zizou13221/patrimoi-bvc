@@ -52,10 +52,17 @@ const fmtDate       = _fn(_fmtMod, 'fmtDate', (d) => d);
 const _calcMod      = (() => { try { return require('./src/utils/calc');       } catch(_) { return {}; } })();
 const totalPatrimoine = _fn(_calcMod, 'totalPatrimoine', () => 0);
 
+const _alertsMod         = (() => { try { return require('./src/utils/bvcAlerts'); } catch(_) { return {}; } })();
+const checkAndFireAlerts = _fn(_alertsMod, 'checkAndFireAlerts', _noop);
+const fireAlertNotif     = _fn(_alertsMod, 'fireAlertNotification', _noop);
+
 const _authMod      = (() => { try { return require('./src/utils/auth');       } catch(_) { return {}; } })();
 const getSession         = _fn(_authMod, 'getSession',         _noopP);
 const loadPatrimoineData = _fn(_authMod, 'loadPatrimoineData', _noopP);
 const onAuthStateChange  = _fn(_authMod, 'onAuthStateChange',  (_cb) => () => {});
+
+const _storeMod     = (() => { try { return require('./src/utils/storekit');   } catch(_) { return {}; } })();
+const checkSubscriptionStatus = _fn(_storeMod, 'checkSubscriptionStatus', () => Promise.resolve({ isPremium: false, expiresDate: null, error: null }));
 
 const _syncMod      = (() => { try { return require('./src/utils/syncQueue');  } catch(_) { return {}; } })();
 const startSyncWorker = _fn(_syncMod, 'startSyncWorker', _noop);
@@ -159,6 +166,7 @@ export default function PatriMoi() {
     history, setHistory,
     isOffline, setIsOffline,
     objectif, setObjectif,
+    isPremium, setIsPremium,
   } = usePatrimoineStore();
 
 
@@ -201,15 +209,17 @@ export default function PatriMoi() {
     else     storage.delete(OBJECTIF_KEY);
   }, []);
 
-  // ── 0c. Sauvegarde snapshot journalier ───────────────────
-  // ── 0c. Snapshot journalier debounced (1s) ──────────────
+  // ── 0c. Snapshot journalier debounced (1s) — PatriMoi+ uniquement ──────────
+  // Compte gratuit : sync patrimoine JSONB de base ✓
+  // PatriMoi+      : + historique snapshots (graphique évolution) ✓
   const snapshotTimer = useRef(null);
   useEffect(() => {
-    if (!appReady) return;
+    if (!appReady || !isPremium) return;
     if (snapshotTimer.current) clearTimeout(snapshotTimer.current);
     snapshotTimer.current = setTimeout(() => {
       const today = new Date().toISOString().slice(0, 10);
       const val   = totalPatrimoine(dataRef.current);
+      if (val <= 0) return;
       setHistory(prev => {
         const next = upsertSnapshot(prev, today, val);
         storage.set(HISTORY_KEY, next);
@@ -217,7 +227,7 @@ export default function PatriMoi() {
       });
     }, 1000);
     return () => { if (snapshotTimer.current) clearTimeout(snapshotTimer.current); };
-  }, [data, appReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, appReady, isPremium]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 0. Vérification onboarding + restauration demoMode ───────
   useEffect(() => {
@@ -246,6 +256,12 @@ export default function PatriMoi() {
         AsyncStorage.removeItem(DEMO_KEY).catch(() => {});
         identifyUser(session.user.id);
         startSyncWorker();
+        // Vérifier l'abonnement PatriMoi+ (StoreKit)
+        // Fail-safe : si StoreKit indisponible, isPremium reste false
+        try {
+          const { isPremium: sub } = await checkSubscriptionStatus();
+          setIsPremium(!!sub);
+        } catch {}
       }
       setAuthReady(true);
     })();
@@ -374,8 +390,11 @@ export default function PatriMoi() {
   // ── 5. Refresh BVC ───────────────────────────────────────
   const refreshBVC = useCallback(async (force = false) => {
     const bvcData = await fetchBVC(force);
-    if (bvcData) { setData(d => applyBVCCours(d, bvcData)); setBvcStatus('ok'); }
-    else { setBvcStatus('error'); }
+    if (bvcData) {
+      setData(d => applyBVCCours(d, bvcData));
+      setBvcStatus('ok');
+      checkAndFireAlerts(bvcData, fireAlertNotif);
+    } else { setBvcStatus('error'); }
   }, []);
 
   // ── 6. Démarrage : cache BVC local + fetch réseau ────────

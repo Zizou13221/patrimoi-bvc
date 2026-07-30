@@ -204,6 +204,22 @@ export async function savePatrimoineDataWithLock(userId, patrimoineData, knownUp
 }
 
 /**
+ * Supprime le compte de l'utilisateur connecté via Edge Function
+ * (la clé service_role reste côté serveur — jamais exposée au client)
+ *
+ * Flux : JWT → Edge Function → delete data → adminDeleteUser
+ */
+export async function deleteAccount() {
+  try {
+    const { data, error } = await supabase.functions.invoke('delete-account');
+    if (error) return { error: typeof error === 'string' ? error : (error.message || 'Erreur suppression compte') };
+    return { data, error: null };
+  } catch (e) {
+    return { error: e?.message || 'Erreur réseau lors de la suppression' };
+  }
+}
+
+/**
  * Écoute les changements de session en temps réel
  * callback(session) est appelé à chaque changement
  */

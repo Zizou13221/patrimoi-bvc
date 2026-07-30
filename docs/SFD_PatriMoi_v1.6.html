@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SFD — PatriMoi v1.6</title>
+<style>
+  :root{
+    --bg:#0f1117;--surf:#1a1d2e;--dark:#242740;--border:#2e3250;
+    --accent:#6c8ef7;--green:#5ee7a7;--gold:#f7c26c;--red:#f76c8e;
+    --navy:#4a6fa5;--teal:#5bbfba;
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --white:#fff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ── Layout ── */
+  .wrapper{max-width:1100px;margin:0 auto;padding:0 24px 80px}
+
+  /* ── Cover ── */
+  .cover{
+    background:linear-gradient(135deg,var(--surf) 0%,var(--dark) 100%);
+    border-bottom:2px solid var(--border);
+    padding:64px 40px 48px;margin-bottom:40px;
+    position:relative;overflow:hidden;
+  }
+  .cover::before{
+    content:'';position:absolute;top:-60px;right:-60px;
+    width:300px;height:300px;border-radius:50%;
+    background:radial-gradient(circle,rgba(108,142,247,.12) 0%,transparent 70%);
+  }
+  .cover-kicker{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:12px}
+  .cover h1{font-size:48px;font-weight:800;color:var(--white);line-height:1.1;margin-bottom:8px}
+  .cover h1 span{color:var(--accent)}
+  .cover-sub{font-size:16px;color:var(--text2);margin-bottom:28px}
+  .cover-meta{display:flex;gap:16px;flex-wrap:wrap}
+  .tag{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid}
+  .tag-blue{color:var(--accent);border-color:var(--accent);background:rgba(108,142,247,.08)}
+  .tag-green{color:var(--green);border-color:var(--green);background:rgba(94,231,167,.08)}
+  .tag-gold{color:var(--gold);border-color:var(--gold);background:rgba(247,194,108,.08)}
+  .tag-red{color:var(--red);border-color:var(--red);background:rgba(247,108,142,.08)}
+
+  /* ── TOC ── */
+  .toc{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:40px}
+  .toc h2{font-size:13px;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px}
+  .toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px}
+  .toc-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;color:var(--text2);font-size:13px;transition:background .15s}
+  .toc-item:hover{background:var(--dark);color:var(--white)}
+  .toc-num{color:var(--accent);font-weight:700;font-size:12px;min-width:20px}
+
+  /* ── Sections ── */
+  section{margin-bottom:48px;scroll-margin-top:20px}
+  .sec-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .sec-num{font-size:12px;font-weight:700;color:var(--accent);background:rgba(108,142,247,.1);padding:4px 10px;border-radius:6px;border:1px solid rgba(108,142,247,.3)}
+  .sec-header h2{font-size:22px;font-weight:700;color:var(--white)}
+  .sec-header .sec-sub{font-size:13px;color:var(--text3);margin-top:2px}
+
+  h3{font-size:16px;font-weight:700;color:var(--text);margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+  h3::before{content:'';display:block;width:3px;height:16px;background:var(--accent);border-radius:2px;flex-shrink:0}
+  h4{font-size:13px;font-weight:700;color:var(--text2);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px}
+
+  p{color:var(--text2);margin-bottom:10px}
+  ul,ol{padding-left:20px;color:var(--text2);margin-bottom:12px}
+  li{margin-bottom:4px}
+  li strong{color:var(--text)}
+
+  /* ── Cards ── */
+  .card{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px}
+  .card-grid{display:grid;gap:14px;margin-bottom:14px}
+  .card-grid-2{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+  .card-grid-3{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  .card-grid-4{grid-template-columns:repeat(4,1fr)}
+  .card h4{margin-top:0;font-size:12px}
+  .card-title{font-size:14px;font-weight:700;color:var(--white);margin-bottom:6px}
+  .card-body{font-size:13px;color:var(--text2)}
+
+  /* ── Feature cards ── */
+  .feat{border-left:3px solid var(--accent)}
+  .feat-green{border-left-color:var(--green)}
+  .feat-gold{border-left-color:var(--gold)}
+  .feat-red{border-left-color:var(--red)}
+  .feat-navy{border-left-color:var(--navy)}
+  .feat-teal{border-left-color:var(--teal)}
+
+  /* ── Table ── */
+  .tbl-wrap{overflow-x:auto;margin-bottom:20px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{background:var(--dark);color:var(--text2);font-weight:700;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  tbody td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.02)}
+  td strong{color:var(--text)}
+  td code{font-family:monospace;font-size:11px;color:var(--accent);background:rgba(108,142,247,.1);padding:2px 5px;border-radius:3px}
+
+  /* ── Flow steps ── */
+  .flow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center}
+  .flow-step{background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--text)}
+  .flow-arrow{color:var(--text3);font-size:18px}
+
+  /* ── KPI row ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+  .kpi{background:var(--dark);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+  .kpi-val{font-size:24px;font-weight:800;color:var(--accent)}
+  .kpi-label{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* ── Callout ── */
+  .callout{border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7}
+  .callout-blue{background:rgba(108,142,247,.08);border-left:3px solid var(--accent);color:var(--text2)}
+  .callout-green{background:rgba(94,231,167,.08);border-left:3px solid var(--green);color:var(--text2)}
+  .callout-gold{background:rgba(247,194,108,.08);border-left:3px solid var(--gold);color:var(--text2)}
+  .callout-red{background:rgba(247,108,142,.08);border-left:3px solid var(--red);color:var(--text2)}
+  .callout strong{color:var(--white)}
+
+  /* ── Asset chip ── */
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;margin:3px}
+  .chip-blue{background:rgba(108,142,247,.15);color:var(--accent);border:1px solid rgba(108,142,247,.3)}
+  .chip-green{background:rgba(94,231,167,.15);color:var(--green);border:1px solid rgba(94,231,167,.3)}
+  .chip-gold{background:rgba(247,194,108,.15);color:var(--gold);border:1px solid rgba(247,194,108,.3)}
+  .chip-red{background:rgba(247,108,142,.15);color:var(--red);border:1px solid rgba(247,108,142,.3)}
+  .chip-teal{background:rgba(91,191,186,.15);color:var(--teal);border:1px solid rgba(91,191,186,.3)}
+  .chip-navy{background:rgba(74,111,165,.15);color:var(--navy);border:1px solid rgba(74,111,165,.3)}
+
+  /* ── Screen mockup ── */
+  .screens{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  .screen{background:var(--dark);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text2);min-width:180px;flex:1}
+  .screen-title{font-weight:700;color:var(--white);font-size:13px;margin-bottom:6px}
+
+  /* ── NEW badge ── */
+  .new{display:inline-block;font-size:9px;font-weight:800;color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;letter-spacing:.5px}
+
+  /* ── Nav bar ── */
+  .navbar{position:sticky;top:0;z-index:100;background:rgba(15,17,23,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:24px;padding:12px 40px}
+  .navbar-brand{font-weight:800;font-size:15px;color:var(--white)}
+  .navbar-brand span{color:var(--accent)}
+  .navbar-links{display:flex;gap:16px;flex-wrap:wrap}
+  .navbar-links a{font-size:12px;color:var(--text3)}
+  .navbar-links a:hover{color:var(--text)}
+  .navbar-badge{margin-left:auto;font-size:11px;color:var(--text3)}
+
+  @media(max-width:600px){
+    .cover h1{font-size:30px}.card-grid-4{grid-template-columns:1fr 1fr}.navbar-links{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="navbar">
+  <div class="navbar-brand">Patri<span>Moi</span></div>
+  <div class="navbar-links">
+    <a href="#parcours">Parcours</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#actifs">Actifs</a>
+    <a href="#budget">Budget</a>
+    <a href="#conseils">Conseils</a>
+    <a href="#export">Export PDF</a>
+    <a href="#plus">PatriMoi+</a>
+    <a href="#securite">Sécurité</a>
+    <a href="#params">Paramètres</a>
+  </div>
+  <div class="navbar-badge">SFD v1.6 — Juillet 2026</div>
+</nav>
+
+<!-- ═══════════ COVER ═══════════ -->
+<div class="cover">
+  <div class="wrapper">
+    <div class="cover-kicker">Spécification Fonctionnelle Détaillée</div>
+    <h1>Patri<span>Moi</span></h1>
+    <p class="cover-sub">Application iOS de gestion de patrimoine personnel — marché marocain</p>
+    <div class="cover-meta">
+      <span class="tag tag-blue">v1.6 — Juillet 2026</span>
+      <span class="tag tag-green">iOS 16+</span>
+      <span class="tag tag-gold">8 catégories d'actifs</span>
+      <span class="tag tag-blue">PatriMoi+ 49 DH/mois</span>
+      <span class="tag tag-teal" style="color:var(--teal);border-color:var(--teal)">Suivi Budget<span class="new">NEW</span></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrapper">
+
+<!-- ═══════════ TABLE DES MATIÈRES ═══════════ -->
+<div class="toc">
+  <h2>Table des matières</h2>
+  <div class="toc-grid">
+    <a href="#parcours" class="toc-item"><span class="toc-num">1</span>Parcours utilisateur</a>
+    <a href="#auth" class="toc-item"><span class="toc-num">2</span>Authentification</a>
+    <a href="#securite" class="toc-item"><span class="toc-num">3</span>Sécurité & Confidentialité</a>
+    <a href="#dashboard" class="toc-item"><span class="toc-num">4</span>Dashboard — Vue globale</a>
+    <a href="#actifs" class="toc-item"><span class="toc-num">5</span>8 Catégories d'actifs</a>
+    <a href="#liquidites" class="toc-item"><span class="toc-num">5.1</span>Liquidités & Banque & Carnet</a>
+    <a href="#pea" class="toc-item"><span class="toc-num">5.2</span>PEA — Bourse de Casablanca</a>
+    <a href="#ct" class="toc-item"><span class="toc-num">5.3</span>Compte-Titres</a>
+    <a href="#or" class="toc-item"><span class="toc-num">5.4</span>Or & Métaux précieux</a>
+    <a href="#immo" class="toc-item"><span class="toc-num">5.5</span>Immobilier & Terrains</a>
+    <a href="#transport" class="toc-item"><span class="toc-num">5.6</span>Transport — Véhicules</a>
+    <a href="#budget" class="toc-item"><span class="toc-num">6</span>Suivi Budget mensuel</a>
+    <a href="#conseils" class="toc-item"><span class="toc-num">7</span>Conseils & Score Santé</a>
+    <a href="#objectif" class="toc-item"><span class="toc-num">8</span>Objectif patrimonial</a>
+    <a href="#alertes" class="toc-item"><span class="toc-num">9</span>Alertes BVC</a>
+    <a href="#export" class="toc-item"><span class="toc-num">10</span>Export PDF</a>
+    <a href="#plus" class="toc-item"><span class="toc-num">11</span>PatriMoi+</a>
+    <a href="#params" class="toc-item"><span class="toc-num">12</span>Paramètres</a>
+    <a href="#sources" class="toc-item"><span class="toc-num">13</span>Sources de données</a>
+  </div>
+</div>
+
+<!-- ═══════════ 1. PARCOURS UTILISATEUR ═══════════ -->
+<section id="parcours">
+  <div class="sec-header">
+    <span class="sec-num">01</span>
+    <div><h2>Parcours utilisateur</h2><div class="sec-sub">Du premier lancement à l'utilisation quotidienne</div></div>
+  </div>
+
+  <h3>Premier lancement — Onboarding</h3>
+  <p>Lors du tout premier démarrage, l'utilisateur traverse 4 slides d'introduction animées, swipables horizontalement, avec possibilité de sauter à tout moment via le bouton <em>Passer</em>.</p>
+
+  <div class="card-grid card-grid-4">
+    <div class="card">
+      <div class="card-title">🏦 Slide 1</div>
+      <div class="card-body">Votre patrimoine, tout en un seul endroit — présentation de la centralisation des actifs.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Slide 2</div>
+      <div class="card-body">Cours BVC en temps réel — valorisation automatique des actions Casablanca Bourse.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔒 Slide 3</div>
+      <div class="card-body">Vos données restent vos données — chiffrement, cloud ou mode 100% local.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">💡 Slide 4</div>
+      <div class="card-body">Des conseils taillés pour votre profil — analyse de répartition et recommandations.</div>
+    </div>
+  </div>
+
+  <h3>Parcours standard</h3>
+  <div class="flow">
+    <span class="flow-step">Onboarding (1×)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Connexion / Inscription</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Saisie PIN (optionnel)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Dashboard</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Saisie actifs</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Utilisation quotidienne</span>
+  </div>
+
+  <h3>Parcours sans compte (Mode Démo)</h3>
+  <div class="flow">
+    <span class="flow-step">Onboarding (1×)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">« Continuer sans compte »</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Dashboard (données locales)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Graphique démo pré-rempli</span>
+  </div>
+  <div class="callout callout-gold"><strong>Mode Démo :</strong> les données sont stockées uniquement en local (MMKV). Il n'y a pas de synchronisation cloud, pas d'export PDF, pas de snapshots. L'utilisateur peut upgrader vers PatriMoi+ à tout moment pour activer la sync.</div>
+
+  <h3>Navigation principale</h3>
+  <p>L'application est organisée en 4 onglets principaux accessibles via une barre de navigation en bas d'écran :</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Onglet</th><th>Icône</th><th>Contenu</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tableau de bord</strong></td><td>🏠</td><td>Patrimoine total, graphique, répartition, accès aux catégories</td></tr>
+        <tr><td><strong>Budget</strong></td><td>📊</td><td>Suivi mensuel revenus & dépenses <span class="new">NEW v1.6</span></td></tr>
+        <tr><td><strong>Conseils</strong></td><td>💡</td><td>Recommandations personnalisées + score santé + ressources</td></tr>
+        <tr><td><strong>Paramètres</strong></td><td>⚙️</td><td>Compte, sécurité, préférences, export, PatriMoi+</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ 2. AUTHENTIFICATION ═══════════ -->
+<section id="auth">
+  <div class="sec-header">
+    <span class="sec-num">02</span>
+    <div><h2>Authentification</h2><div class="sec-sub">Inscription · Connexion · Mot de passe oublié · Mode Démo</div></div>
+  </div>
+
+  <div class="card-grid card-grid-2">
+    <div class="card feat">
+      <h4>Connexion</h4>
+      <ul>
+        <li>Champs : Email + Mot de passe</li>
+        <li>Lien <em>Mot de passe oublié ?</em> → envoi d'un email de réinitialisation</li>
+        <li>Messages d'erreur contextuels : email inconnu, mot de passe incorrect</li>
+        <li>JWT stocké en Keychain iOS (pas dans AsyncStorage)</li>
+      </ul>
+    </div>
+    <div class="card feat-green">
+      <h4>Inscription</h4>
+      <ul>
+        <li>Champs : Prénom, Nom, Email, Mot de passe (8 caractères minimum)</li>
+        <li>Confirmation par email avant activation du compte (Supabase Auth)</li>
+        <li>Acceptation des CGU et politique de confidentialité</li>
+        <li>Erreurs inline : champs manquants, email invalide, mot de passe trop court</li>
+      </ul>
+    </div>
+    <div class="card feat-gold">
+      <h4>Mot de passe oublié</h4>
+      <ul>
+        <li>Saisie de l'email → envoi immédiat d'un lien de réinitialisation</li>
+        <li>Confirmation visuelle vert après envoi</li>
+        <li>Lien retour vers la page de connexion</li>
+      </ul>
+    </div>
+    <div class="card feat-navy">
+      <h4>Mode Démo (sans compte)</h4>
+      <ul>
+        <li>Bouton « Continuer sans compte » sous le formulaire</li>
+        <li>Données 100% locales, aucune synchronisation</li>
+        <li>Graphique démo pré-rempli sur 30 jours pour visualiser l'interface</li>
+        <li>PIN et biométrie désactivés en mode démo</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 3. SÉCURITÉ ═══════════ -->
+<section id="securite">
+  <div class="sec-header">
+    <span class="sec-num">03</span>
+    <div><h2>Sécurité & Confidentialité</h2><div class="sec-sub">PIN · Biométrie · Mode discret · Verrouillage automatique</div></div>
+  </div>
+
+  <div class="card-grid card-grid-2">
+    <div class="card feat-red">
+      <h4>Code PIN — 6 chiffres</h4>
+      <ul>
+        <li>Configuration optionnelle depuis les Paramètres</li>
+        <li>Saisie : 6 chiffres → confirmation → PIN enregistré en MMKV (chiffré)</li>
+        <li>Modification du PIN : vérification de l'ancien PIN requis avant de définir le nouveau</li>
+        <li>Suppression du PIN : confirmation par alerte native</li>
+        <li>Non disponible en mode Démo</li>
+      </ul>
+    </div>
+    <div class="card feat-blue" style="border-left-color:var(--accent)">
+      <h4>Authentification biométrique</h4>
+      <ul>
+        <li>Face ID ou Touch ID selon le modèle iPhone</li>
+        <li>Active/désactive via toggle dans Paramètres → Sécurité</li>
+        <li>Utilisée comme alternative au PIN pour le déverrouillage de l'app</li>
+      </ul>
+    </div>
+    <div class="card feat-gold">
+      <h4>Verrouillage automatique</h4>
+      <ul>
+        <li>Options : Jamais · 1 min · 2 min · 5 min · 10 min (après mise en arrière-plan)</li>
+        <li>À l'expiration, l'app demande PIN ou biométrie pour se déverrouiller</li>
+        <li>Paramètre persisté entre les sessions</li>
+      </ul>
+    </div>
+    <div class="card feat-teal">
+      <h4>Mode discret 👁</h4>
+      <ul>
+        <li>Toggle accessible depuis le Dashboard et les Paramètres</li>
+        <li>Remplace tous les montants par <code>••••</code> dans l'ensemble de l'interface</li>
+        <li>Le total du patrimoine devient <code>•••• DH</code></li>
+        <li>P&L, delta mensuel, rendement, objectif : tous masqués</li>
+        <li>Les graphiques restent visibles (forme uniquement, pas les valeurs)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>Anti-capture d'écran :</strong> PatriMoi utilise <code>react-native-prevent-screenshot</code> pour bloquer les captures d'écran et les enregistrements d'écran sur iOS, protégeant ainsi les données patrimoniales sensibles affichées.
+  </div>
+</section>
+
+<!-- ═══════════ 4. DASHBOARD ═══════════ -->
+<section id="dashboard">
+  <div class="sec-header">
+    <span class="sec-num">04</span>
+    <div><h2>Dashboard — Vue globale</h2><div class="sec-sub">Écran principal de l'application</div></div>
+  </div>
+
+  <h3>Zone Héro — Patrimoine total</h3>
+  <div class="card feat">
+    <ul>
+      <li><strong>Patrimoine Total</strong> : somme valorisée en DH de toutes les catégories actives, affiché en grand (28pt gras)</li>
+      <li><strong>P&L global</strong> : plus-value depuis les prix de revient saisis (+/- DH et %) — affiché en vert si positif, rouge si négatif</li>
+      <li><strong>Delta mensuel</strong> : variation du patrimoine depuis le 1er du mois courant (▲▼ DH + %) — comparé au premier snapshot du mois</li>
+      <li><strong>Date de dernière mise à jour</strong> des cours (Or, BVC)</li>
+      <li><strong>Bannière hors-ligne</strong> : bandeau jaune d'avertissement si l'appareil est sans connexion ("Hors ligne — données affichées en cache")</li>
+    </ul>
+  </div>
+
+  <h3>Boutons de rafraîchissement</h3>
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-title">↻ Or</div>
+      <div class="card-body">Récupère le prix de l'or en DH/gramme depuis le cache GitHub Actions. Affiche un spinner pendant le chargement et la date de la dernière mise à jour.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">↻ BVC</div>
+      <div class="card-body">Récupère les cours de la Bourse de Casablanca. Indicateur : <span style="color:var(--green)">✓ BVC</span> (succès) · <span style="color:var(--red)">⚠ BVC</span> (erreur) · ↻ BVC (neutre). Affiche le timestamp du dernier workflow GitHub Actions.</div>
+    </div>
+  </div>
+
+  <h3>Graphique d'évolution (Sparkline)</h3>
+  <p>Graphique linéaire interactif de l'évolution du patrimoine dans le temps, basé sur les snapshots quotidiens.</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Filtre période</th><th>Comportement</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1S</strong></td><td>7 derniers jours</td></tr>
+        <tr><td><strong>1M</strong></td><td>30 derniers jours</td></tr>
+        <tr><td><strong>3M</strong></td><td>3 derniers mois</td></tr>
+        <tr><td><strong>6M</strong></td><td>6 derniers mois</td></tr>
+        <tr><td><strong>1A</strong></td><td>12 derniers mois (défaut)</td></tr>
+        <tr><td><strong>MAX</strong></td><td>Depuis la date de début de suivi configurée dans Paramètres</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout-gold"><strong>Mode Démo :</strong> en l'absence de données réelles, un graphique de démonstration sur 30 jours est affiché avec une note explicative en dessous.</div>
+
+  <h3>Bilan du jour</h3>
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-val" style="font-size:18px">Or/g</div><div class="kpi-label">Prix en DH/gramme — live</div></div>
+    <div class="kpi"><div class="kpi-val" style="font-size:18px">P&L%</div><div class="kpi-label">Variation depuis 1er snapshot</div></div>
+    <div class="kpi"><div class="kpi-val" style="font-size:18px">MASI</div><div class="kpi-label">Indice Casablanca Bourse + var %</div></div>
+    <div class="kpi"><div class="kpi-val" style="font-size:18px">N cat.</div><div class="kpi-label">Catégories actives (valeur > 0)</div></div>
+  </div>
+
+  <h3>Rendement annualisé</h3>
+  <p>Affiché uniquement si au moins une source de revenu est détectée. Calcul : <strong>(intérêts carnet + loyers annuels + dividendes de l'année) / patrimoine total × 100</strong>.</p>
+  <div class="card feat-green">
+    <ul>
+      <li><strong>Intérêts Carnet</strong> : solde × taux × 12 mois (DH/an)</li>
+      <li><strong>Loyers</strong> : sum des revenus récurrents de type "loyer" × 12 (DH/an)</li>
+      <li><strong>Dividendes</strong> : sum des opérations de type <em>revenu/dividende</em> pour l'année courante (DH)</li>
+      <li>Note : hors plus-values latentes (BVC, immobilier)</li>
+    </ul>
+  </div>
+
+  <h3>Répartition du patrimoine</h3>
+  <p>Graphique donut montrant la proportion de chaque catégorie dans le patrimoine total. Chaque segment est cliquable pour accéder directement à la catégorie.</p>
+
+  <h3>Détail par catégorie</h3>
+  <p>Liste des 8 catégories triées par valeur décroissante. Chaque ligne affiche :</p>
+  <ul>
+    <li>Icône colorée avec abréviation (LIQ, BNQ, CRT, PEA, CT, OR, IMM, VEH)</li>
+    <li>Nom de la catégorie + barre de progression proportionnelle au patrimoine total</li>
+    <li>Valeur en DH (ou <code>••••</code> en mode discret)</li>
+    <li>P&L % pour PEA et CT (▲ vert ou ▼ rouge)</li>
+    <li>Tap → accès au détail de la catégorie dans la page Actifs</li>
+  </ul>
+
+  <h3>Partage</h3>
+  <p>Bouton « ↑ Partager » qui génère un résumé texte du patrimoine (total, P&L global, top 5 catégories) via la feuille de partage native iOS.</p>
+
+  <h3>Auto-snapshot quotidien</h3>
+  <div class="callout callout-blue">À chaque visite du Dashboard, PatriMoi vérifie si un snapshot a déjà été enregistré pour la date du jour. Si non, il crée automatiquement un enregistrement <em>date → valeur totale</em> utilisé pour construire le graphique d'évolution. Désactivé en mode Démo.</div>
+</section>
+
+<!-- ═══════════ 5. CATÉGORIES D'ACTIFS ═══════════ -->
+<section id="actifs">
+  <div class="sec-header">
+    <span class="sec-num">05</span>
+    <div><h2>8 Catégories d'actifs</h2><div class="sec-sub">Saisie, valorisation et suivi de chaque classe d'actif</div></div>
+  </div>
+
+  <div class="callout callout-blue">
+    La page Actifs s'ouvre en swipant sur n'importe quelle catégorie du Dashboard, ou via l'onglet Actifs. Elle présente une vue tabulée avec une section par catégorie. L'utilisateur saisit ses données manuellement ; la valorisation est calculée automatiquement à partir des cours en cache.
+  </div>
+
+  <!-- 5.1 Liquidités + Banque + Carnet -->
+  <section id="liquidites">
+    <h3>5.1 Liquidités · Banque · Compte sur Carnet</h3>
+
+    <div class="card-grid card-grid-3">
+      <div class="card feat">
+        <h4>💵 Liquidités (LIQ)</h4>
+        <ul>
+          <li>Saisie d'espèces en DH</li>
+          <li>Saisie de <strong>devises étrangères</strong> (18 devises : EUR, USD, GBP, CHF…)</li>
+          <li>Conversion automatique en DH au taux BAM (Bank Al-Maghrib) du jour</li>
+          <li>Valeur totale = cash DH + Σ(montant devise × taux BAM)</li>
+        </ul>
+      </div>
+      <div class="card feat-navy">
+        <h4>🏦 Banque (BNQ)</h4>
+        <ul>
+          <li>Soldes de comptes courants et d'épargne bancaire</li>
+          <li>Catégorie distincte depuis v1.6 (séparée de Liquidités)</li>
+          <li>Saisie libre par compte avec libellé personnalisable</li>
+        </ul>
+      </div>
+      <div class="card feat-teal">
+        <h4>📒 Carnet (CRT)</h4>
+        <ul>
+          <li>Saisie du solde et du <strong>taux de rémunération</strong> (taux BAM recommandé : 2,75%)</li>
+          <li><strong>Projection automatique</strong> des intérêts sur 1 an, 3 ans et 5 ans</li>
+          <li>Prise en compte de versements périodiques optionnels</li>
+          <li>Intérêts annuels remontés dans le rendement annualisé du Dashboard</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5.2 PEA -->
+  <section id="pea">
+    <h3>5.2 PEA — Plan d'Épargne en Actions (Bourse de Casablanca)</h3>
+
+    <div class="card feat">
+      <ul>
+        <li><strong>70+ tickers BVC</strong> disponibles dans un sélecteur (nom complet + code : ex. <em>ATW - Attijariwafa Bank</em>)</li>
+        <li>Pour chaque ligne : ticker, quantité, <strong>Prix de Revient Unitaire (PRU)</strong> saisi manuellement</li>
+        <li>Valorisation automatique = quantité × cours actuel BVC (depuis le cache)</li>
+        <li><strong>P&L par ligne</strong> : (cours actuel − PRU) × quantité, affiché en DH et %</li>
+        <li><strong>PRU pondéré global</strong> du PEA calculé automatiquement en cas d'achats multiples sur le même titre</li>
+        <li>Graphique <strong>donut de répartition</strong> par titre au sein du PEA</li>
+        <li><strong>Tracker fiscal PEA</strong> : date d'achat saisie → calcul de la durée de détention → alertes à 48 mois et 60 mois (seuils d'exonération marocains)</li>
+        <li>Titres déjà exonérés marqués <em>"Déjà exonéré"</em></li>
+        <li>Données de marché (cours) <strong>non persistées en cloud</strong> (règle R8, stripMarketData)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.3 CT -->
+  <section id="ct">
+    <h3>5.3 Compte-Titres (CT)</h3>
+    <div class="card feat-navy">
+      <ul>
+        <li>Même structure que le PEA : ticker, quantité, PRU, valorisation automatique</li>
+        <li>Inclut actions BVC, OPCVM (valeur liquidative saisie manuellement)</li>
+        <li>P&L par ligne et global</li>
+        <li>Pas de tracker fiscal (le Compte-Titres n'a pas d'avantage fiscal spécifique)</li>
+        <li>Données de marché non persistées en cloud (règle R8)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.4 Or -->
+  <section id="or">
+    <h3>5.4 Or & Métaux précieux</h3>
+    <div class="card feat-gold">
+      <ul>
+        <li>Saisie en <strong>grammes</strong></li>
+        <li>Prix de l'or en DH/gramme mis à jour automatiquement depuis le cache GitHub Actions</li>
+        <li>Valeur = grammes × prix DH/g</li>
+        <li>Bouton <em>↻ Or</em> sur le Dashboard pour rafraîchir le cours à la demande</li>
+        <li>Affichage du prix actuel et de la date de dernière mise à jour</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.5 Immobilier -->
+  <section id="immo">
+    <h3>5.5 Immobilier & Terrains</h3>
+    <div class="card" style="border-left:3px solid #B46428">
+      <ul>
+        <li>Saisie de biens avec : nom, type (appartement, villa, terrain, local…), <strong>valeur estimée actuelle</strong></li>
+        <li><strong>Loyers mensuels</strong> : saisie optionnelle → comptabilisés dans le rendement annualisé du Dashboard</li>
+        <li><strong>Taux de rendement locatif</strong> calculé automatiquement : loyers annuels / valeur bien × 100</li>
+        <li>Valorisation manuelle (pas de base de données immobilières intégrée — l'utilisateur saisit sa propre estimation)</li>
+        <li>Ressources tierces : lien vers mubawab.ma et yakeey.ma disponibles dans la page Conseils</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.6 Transport -->
+  <section id="transport">
+    <h3>5.6 Biens de Transport — Véhicules <span class="new">NEW v1.6</span></h3>
+    <div class="card feat-red">
+      <ul>
+        <li>Saisie de véhicules avec : nom, type, <strong>prix d'achat</strong>, <strong>année d'acquisition</strong></li>
+        <li><strong>Dépréciation automatique</strong> calculée selon le type de véhicule :</li>
+      </ul>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Type</th><th>Taux annuel</th><th>Formule</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Voiture</strong></td><td>15 % / an</td><td>valeur = prix_achat × (1 − 0,15)^âge</td></tr>
+            <tr><td><strong>Moto</strong></td><td>12 % / an</td><td>valeur = prix_achat × (1 − 0,12)^âge</td></tr>
+            <tr><td><strong>Camion</strong></td><td>10 % / an</td><td>valeur = prix_achat × (1 − 0,10)^âge</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>L'âge est calculé automatiquement à partir de l'année d'acquisition et de l'année courante</li>
+        <li>Valeur résiduelle affichée en DH avec le pourcentage de dépréciation cumulée</li>
+      </ul>
+    </div>
+  </section>
+</section>
+
+<!-- ═══════════ 6. SUIVI BUDGET ═══════════ -->
+<section id="budget">
+  <div class="sec-header">
+    <span class="sec-num">06</span>
+    <div><h2>Suivi Budget mensuel <span class="new">NEW v1.6</span></h2><div class="sec-sub">Revenus, dépenses, épargne — vue mensuelle</div></div>
+  </div>
+
+  <p>La page Suivi Budget permet de suivre les entrées et sorties d'argent mois par mois, de comparer à un budget prévisionnel et de visualiser les tendances sur 6 mois.</p>
+
+  <h3>Navigation temporelle</h3>
+  <div class="card">
+    <ul>
+      <li>Sélecteur de mois : boutons ← → pour naviguer entre les mois</li>
+      <li>Affichage : <em>Juillet 2026</em> (mois long + année)</li>
+      <li>Les données sont organisées par mois/année et persistées localement</li>
+    </ul>
+  </div>
+
+  <h3>KPIs du mois en cours</h3>
+  <div class="card-grid card-grid-3">
+    <div class="card feat-green">
+      <div class="card-title">💰 Revenus</div>
+      <div class="card-body">Total des entrées du mois. Comparaison M-1 : ↑↓ % affiché à côté.</div>
+    </div>
+    <div class="card feat-red">
+      <div class="card-title">💸 Dépenses</div>
+      <div class="card-body">Total des sorties du mois. Comparaison M-1 : ↑↓ % affiché à côté.</div>
+    </div>
+    <div class="card feat-teal">
+      <div class="card-title">📈 Taux d'épargne</div>
+      <div class="card-body">(Revenus − Dépenses) / Revenus × 100. Affiché en % avec code couleur : vert ≥ 20%, orange ≥ 0%, rouge < 0%.</div>
+    </div>
+  </div>
+
+  <h3>Graphique tendances — 6 mois</h3>
+  <div class="card feat">
+    <ul>
+      <li>Bar chart vertical des 6 derniers mois de dépenses</li>
+      <li>Le mois courant est mis en évidence (couleur différente)</li>
+      <li>Valeurs affichées au-dessus de chaque barre (format compact : 12k, 8,5k…)</li>
+      <li>Mois sans dépenses affichés en gris (barre minimale de 2px)</li>
+    </ul>
+  </div>
+
+  <h3>Répartition par catégorie (donut)</h3>
+  <p>Barre de répartition empilée horizontale montrant la proportion de chaque catégorie de dépenses. 7 catégories disponibles :</p>
+  <div style="margin-bottom:14px">
+    <span class="chip chip-red">🛒 Alimentation</span>
+    <span class="chip chip-blue">🚗 Transport</span>
+    <span class="chip chip-navy">🏠 Logement</span>
+    <span class="chip chip-gold">🎭 Loisirs</span>
+    <span class="chip chip-teal">💊 Santé</span>
+    <span class="chip chip-gold">📚 Éducation</span>
+    <span class="chip chip-green">💼 Autre</span>
+  </div>
+
+  <h3>Budget cibles par catégorie</h3>
+  <div class="card feat-gold">
+    <ul>
+      <li>L'utilisateur peut définir un budget mensuel maximum pour chaque catégorie</li>
+      <li>Barre de progression pour chaque catégorie : <span style="color:var(--green)">vert</span> si sous le budget, <span style="color:var(--gold)">orange</span> ≥ 80%, <span style="color:var(--red)">rouge</span> ≥ 100% (dépassement)</li>
+      <li>Modal de configuration des budgets accessible via un bouton dédié</li>
+    </ul>
+  </div>
+
+  <h3>Saisie des opérations</h3>
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-title">Ajouter une dépense</div>
+      <div class="card-body">Montant, catégorie (7 choix), libellé libre, date (par défaut = aujourd'hui), type de paiement optionnel.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ajouter un revenu</div>
+      <div class="card-body">Montant, source (salaire, loyer, dividende, autre…), libellé libre, date.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ajouter un mouvement d'actif</div>
+      <div class="card-body">Achat / vente sur PEA, CT, Or, Immobilier, Carnet, Banque, Liquidités, Transport — associé à une ligne de la catégorie correspondante.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Modifier / Supprimer</div>
+      <div class="card-body">Tap sur une opération → modal pré-rempli pour édition. Long press → confirmation de suppression.</div>
+    </div>
+  </div>
+
+  <h3>Balance mensuelle</h3>
+  <div class="callout callout-green">
+    <strong>Balance = Revenus − Dépenses.</strong> Affichée en grand avec un indicateur coloré. Positive (vert) = épargne du mois. Négative (rouge) = mois déficitaire. Comparaison automatique avec le mois N-1.
+  </div>
+
+  <h3>Positions d'investissement du mois</h3>
+  <p>Affichage des positions PEA et Compte-Titres actives avec P&L, accessible depuis la vue Budget — permet de corréler les performances boursières avec les flux budgétaires.</p>
+</section>
+
+<!-- ═══════════ 7. CONSEILS & SCORE SANTÉ ═══════════ -->
+<section id="conseils">
+  <div class="sec-header">
+    <span class="sec-num">07</span>
+    <div><h2>Conseils & Score Santé patrimoniale</h2><div class="sec-sub">Recommandations personnalisées basées sur le vrai portfolio</div></div>
+  </div>
+
+  <h3>Recommandations contextuelles</h3>
+  <p>PatriMoi génère automatiquement des recommandations personnalisées en analysant la composition réelle du patrimoine. Chaque conseil est :</p>
+  <div class="card-grid card-grid-3">
+    <div class="card feat-red">
+      <h4>Priorité 1 — Urgent</h4>
+      <div class="card-body">Fond rouge clair, action requise rapidement (ex : sur-exposition à un actif, absence totale d'épargne réglementée).</div>
+    </div>
+    <div class="card feat-gold">
+      <h4>Priorité 2 — Important</h4>
+      <div class="card-body">Fond orange clair, action recommandée à court terme (ex : titres PEA proches du seuil fiscal).</div>
+    </div>
+    <div class="card feat-navy">
+      <h4>Priorité 3 — À considérer</h4>
+      <div class="card-body">Fond bleu clair, optimisation possible (ex : diversification immobilière, intérêts carnet).</div>
+    </div>
+  </div>
+  <p>Chaque conseil inclut un <strong>bouton d'action</strong> qui navigue directement vers la section concernée de l'application (ex : "Gérer mon PEA →").</p>
+
+  <h3>Types de conseils générés</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Déclencheur</th><th>Conseil généré</th></tr></thead>
+      <tbody>
+        <tr><td>PEA absent ou faible (< 5% du patrimoine)</td><td>Ouvrir / alimenter un PEA pour profiter des avantages fiscaux BVC</td></tr>
+        <tr><td>Titre PEA entre 48 et 60 mois de détention</td><td>Alerte : approche du seuil d'exonération — vérifier la stratégie de cession</td></tr>
+        <tr><td>Titre PEA déjà exonéré (> 60 mois)</td><td>Confirmation : ce titre est exonéré fiscalement</td></tr>
+        <tr><td>Liquidités > 30% du patrimoine</td><td>Excès de liquidités — envisager une diversification (or, BVC, carnet)</td></tr>
+        <tr><td>Liquidités < 5% du patrimoine</td><td>Matelas de sécurité insuffisant — constituer 3-6 mois de dépenses</td></tr>
+        <tr><td>Absence d'immobilier</td><td>Diversification immobilière — poids dans le patrimoine marocain moyen</td></tr>
+        <tr><td>Or < 5% du patrimoine</td><td>Considérer une allocation en or comme valeur refuge</td></tr>
+        <tr><td>Carnet absent ou < 10%</td><td>Alimenter un compte sur carnet pour l'épargne réglementée (2,75% BAM)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Score de santé patrimoniale</h3>
+  <p>Score global sur 100 calculé selon 4 dimensions, chacune notée sur 100 puis moyennée. Affiché avec label : <span style="color:var(--green)">Excellent</span> (≥ 75) · <span style="color:var(--gold)">Passable</span> (≥ 50) · <span style="color:var(--red)">À améliorer</span> (< 50).</p>
+
+  <div class="card-grid card-grid-2">
+    <div class="card feat">
+      <div class="card-title">🎯 Diversification (0–100 pts)</div>
+      <div class="card-body">25 pts par classe d'actif "alternative" présente (Or, Immobilier, PEA, CT), pondérée par le poids réel de la classe. Plus la classe est représentée, plus le score progresse vers 25 pts.</div>
+    </div>
+    <div class="card feat-teal">
+      <div class="card-title">📒 Épargne réglementée (0–100 pts)</div>
+      <div class="card-body">Cible : Carnet = 10% du patrimoine. Score linéaire de 0% à 100% au fur et à mesure qu'on approche de 10%, plafonné à 100 au-delà.</div>
+    </div>
+    <div class="card feat-navy">
+      <div class="card-title">📈 Investissements BVC (0–100 pts)</div>
+      <div class="card-body">Cible : (PEA + CT) = 15% du patrimoine. Score linéaire de 0% à 100% au fur et à mesure qu'on approche de 15%.</div>
+    </div>
+    <div class="card feat-green">
+      <div class="card-title">💧 Liquidité optimale (0–100 pts)</div>
+      <div class="card-body">Cible : (Liquidités + Banque) = 10–20% du patrimoine. Pénalité symétrique autour de la cible 15% : pénalité si trop de cash ou pas assez.</div>
+    </div>
+  </div>
+
+  <h3>Guides thématiques</h3>
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-title">BVC — Investir à la Bourse de Casablanca</div>
+      <div class="card-body">Lien vers casablanca-bourse.com — guide de niveau Débutant à Confirmé.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">IMM — Fiscalité immobilière au Maroc</div>
+      <div class="card-body">Lien vers mubawab.ma — calcul des plus-values immobilières.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">OPC — Comprendre les OPCVM</div>
+      <div class="card-body">Lien vers opcvm.ma — fonds, valeurs liquidatives, rendements.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">EPN — Optimiser votre épargne</div>
+      <div class="card-body">Lien vers bkam.ma — PEA, compte sur carnet, taux d'intérêt.</div>
+    </div>
+  </div>
+
+  <h3>Sources officielles</h3>
+  <p>6 raccourcis vers les sources de référence du marché marocain :</p>
+  <div style="margin-bottom:14px">
+    <span class="chip chip-blue">casablanca-bourse.com</span>
+    <span class="chip chip-navy">ammc.ma</span>
+    <span class="chip chip-navy">bkam.ma</span>
+    <span class="chip chip-teal">mubawab.ma</span>
+    <span class="chip chip-blue">opcvm.ma</span>
+    <span class="chip chip-green">yakeey.ma</span>
+  </div>
+  <p>Chaque lien est protégé par une alerte de confirmation avant d'ouvrir le navigateur externe ("Vous allez quitter PatriMoi").</p>
+</section>
+
+<!-- ═══════════ 8. OBJECTIF PATRIMONIAL ═══════════ -->
+<section id="objectif">
+  <div class="sec-header">
+    <span class="sec-num">08</span>
+    <div><h2>Objectif patrimonial</h2><div class="sec-sub">Cible en DH avec projection automatique de date d'atteinte</div></div>
+  </div>
+
+  <div class="card feat-gold">
+    <ul>
+      <li><strong>Configuration</strong> : montant cible en DH + date cible (ex : "1 000 000 DH d'ici 2030")</li>
+      <li><strong>Barre de progression</strong> : affichée en haut du Dashboard — progression en % du montant atteint</li>
+      <li><strong>Label</strong> : "<em>X DH / Y DH — Z DH restants</em>" ou "<em>✓ Objectif atteint !</em>" si 100%</li>
+      <li><strong>Simulation de date d'atteinte</strong> : basée sur la croissance quotidienne moyenne observée sur les 30 derniers points de l'historique → calcul du nombre de jours restants → affichage "<em>À ce rythme (+X DH/j) : atteint en N mois (mois AAAA)</em>"</li>
+      <li>Si la croissance est nulle ou négative, la simulation n'est pas affichée</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ 9. ALERTES BVC ═══════════ -->
+<section id="alertes">
+  <div class="sec-header">
+    <span class="sec-num">09</span>
+    <div><h2>Alertes de cours BVC</h2><div class="sec-sub">Seuils haut/bas par ticker Casablanca Bourse</div></div>
+  </div>
+
+  <div class="card feat">
+    <ul>
+      <li><strong>Création d'une alerte</strong> : saisie du ticker (ex : ATW, BCP, IAM), seuil haut optionnel, seuil bas optionnel (au moins un requis)</li>
+      <li><strong>Modification</strong> : tap sur une alerte existante → modal pré-remplie</li>
+      <li><strong>Activation/Désactivation</strong> : toggle par alerte (sans suppression)</li>
+      <li><strong>Suppression</strong> : appui long + confirmation</li>
+      <li>Les alertes sont vérifiées à chaque rafraîchissement BVC et déclenchent une notification locale iOS si le seuil est franchi</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ 10. EXPORT PDF ═══════════ -->
+<section id="export">
+  <div class="sec-header">
+    <span class="sec-num">10</span>
+    <div><h2>Export PDF <span class="new">NEW v1.6</span></h2><div class="sec-sub">Architecture duale — PDF Patrimoine & PDF Budget</div></div>
+  </div>
+
+  <div class="callout callout-blue"><strong>Réservé aux abonnés PatriMoi+.</strong> L'export PDF n'est pas disponible en mode Démo ni pour les comptes sans abonnement actif.</div>
+
+  <h3>PDF Patrimoine</h3>
+  <div class="card feat">
+    <ul>
+      <li>Synthèse du patrimoine complet à date de génération</li>
+      <li>Total patrimoine en DH</li>
+      <li>Répartition par catégorie (tableau + pourcentages)</li>
+      <li>Détail des actifs principaux (PEA, Or, Immobilier, Transport)</li>
+      <li>Conseils personnalisés du moment</li>
+      <li>Score de santé patrimoniale</li>
+      <li>Format : 1 à 2 pages A4</li>
+    </ul>
+  </div>
+
+  <h3>PDF Budget (9 sections) <span class="new">NEW v1.6</span></h3>
+  <div class="card feat-green">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Section</th><th>Contenu</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Santé badge</strong></td><td>Score 0/3 critères : balance positive · taux d'épargne ≥ 20% · respect du budget</td></tr>
+          <tr><td>2</td><td><strong>SVG Tendances</strong></td><td>Bar chart des 6 derniers mois de dépenses avec montants</td></tr>
+          <tr><td>3</td><td><strong>Top 3 dépenses</strong></td><td>Les 3 catégories les plus dépensées du mois avec montants et %</td></tr>
+          <tr><td>4</td><td><strong>Revenus détail</strong></td><td>Toutes les sources de revenus du mois (salaire, loyer, dividende…)</td></tr>
+          <tr><td>5</td><td><strong>Positions PEA</strong></td><td>Valeur actuelle, P&L et % de variation des titres PEA</td></tr>
+          <tr><td>6</td><td><strong>Positions CT</strong></td><td>Valeur actuelle et P&L du Compte-Titres</td></tr>
+          <tr><td>7</td><td><strong>Comparatif N vs N-1</strong></td><td>Tableau revenus / dépenses / balance du mois vs mois précédent</td></tr>
+          <tr><td>8</td><td><strong>Budget vs Réel</strong></td><td>Pour chaque catégorie de dépenses : budget prévu vs réel, écart en DH et %</td></tr>
+          <tr><td>9</td><td><strong>Résumé général</strong></td><td>Patrimoine total + taux d'épargne du mois</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px">Format : 1 à 3 pages A4, thème personnalisé, partageable via la feuille de partage native iOS.</p>
+  </div>
+
+  <h3>Paramétrage de la plage de dates</h3>
+  <div class="card">
+    <ul>
+      <li>Modal de sélection : date de début et date de fin (format AAAA-MM-JJ)</li>
+      <li>Par défaut : du 1er au dernier jour du mois courant</li>
+      <li>Le PDF intègre toutes les opérations dans la plage sélectionnée</li>
+    </ul>
+  </div>
+
+  <h3>Mécanisme de génération</h3>
+  <div class="flow">
+    <span class="flow-step">Bouton Export (page Paramètres)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Génération HTML (template JS)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">RNPDFExport.m (module natif iOS)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">WKWebView offscreen</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">PDF A4</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">UIActivityViewController (partage)</span>
+  </div>
+</section>
+
+<!-- ═══════════ 11. PATRIMOI+ ═══════════ -->
+<section id="plus">
+  <div class="sec-header">
+    <span class="sec-num">11</span>
+    <div><h2>PatriMoi+</h2><div class="sec-sub">Abonnement premium — 49 DH / mois</div></div>
+  </div>
+
+  <div class="callout callout-gold"><strong>PatriMoi+ à 49 DH/mois</strong> débloque toutes les fonctionnalités cloud de l'application. Sans abonnement, l'app fonctionne en mode local uniquement.</div>
+
+  <div class="card-grid card-grid-2">
+    <div class="card feat-gold">
+      <div class="card-title">☁️ Synchronisation cloud</div>
+      <div class="card-body">Sauvegarde automatique du patrimoine sur Supabase (PostgreSQL + RLS). Accessible depuis plusieurs appareils. Sync en arrière-plan avec pattern Outbox MMKV (5 retries, debounce 800ms).</div>
+    </div>
+    <div class="card feat-gold">
+      <div class="card-title">📸 Snapshots automatiques</div>
+      <div class="card-body">Enregistrement quotidien de la valeur du patrimoine en base de données cloud. Disponible dans l'historique même après réinstallation de l'app.</div>
+    </div>
+    <div class="card feat-gold">
+      <div class="card-title">📄 Export PDF</div>
+      <div class="card-body">Génération de rapports PDF (Patrimoine + Budget) partageables via email, AirDrop, iCloud…</div>
+    </div>
+    <div class="card feat-gold">
+      <div class="card-title">🔐 Accès multi-appareils</div>
+      <div class="card-body">Compte Supabase lié à l'adresse email — réinstallation ou changement d'iPhone sans perte de données.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>Sans PatriMoi+ :</strong> les données restent 100% locales (MMKV), l'historique est perdu en cas de réinstallation, l'export PDF n'est pas disponible. L'ensemble des fonctionnalités de calcul, de visualisation et de conseils reste accessible gratuitement.
+  </div>
+</section>
+
+<!-- ═══════════ 12. PARAMÈTRES ═══════════ -->
+<section id="params">
+  <div class="sec-header">
+    <span class="sec-num">12</span>
+    <div><h2>Paramètres</h2><div class="sec-sub">Compte, sécurité, préférences, outils</div></div>
+  </div>
+
+  <div class="card-grid card-grid-2">
+    <div class="card feat">
+      <h4>Mon compte</h4>
+      <ul>
+        <li>Affichage du prénom, nom, email</li>
+        <li>Modification du profil (prénom, nom)</li>
+        <li>Déconnexion</li>
+      </ul>
+    </div>
+    <div class="card feat-red">
+      <h4>Sécurité</h4>
+      <ul>
+        <li>Code PIN 6 chiffres (définir / modifier / supprimer)</li>
+        <li>Authentification biométrique (Face ID / Touch ID) — toggle</li>
+        <li>Verrouillage automatique : Jamais · 1 min · 2 min · 5 min · 10 min</li>
+        <li>Mode discret — toggle</li>
+      </ul>
+    </div>
+    <div class="card feat-gold">
+      <h4>Objectif patrimonial</h4>
+      <ul>
+        <li>Montant cible en DH</li>
+        <li>Date cible (format libre : 2028, 01/01/2028, 2028-01-01)</li>
+        <li>Barre de progression visible sur le Dashboard</li>
+      </ul>
+    </div>
+    <div class="card feat-teal">
+      <h4>Date de début de suivi</h4>
+      <ul>
+        <li>Définit le point de départ du filtre "MAX" sur le graphique d'évolution</li>
+        <li>Formats acceptés : AAAA · JJ/MM/AAAA · AAAA-MM-JJ</li>
+      </ul>
+    </div>
+    <div class="card feat-navy">
+      <h4>Notifications</h4>
+      <ul>
+        <li>Rappels de mise à jour hebdomadaire — toggle (push notifications iOS)</li>
+        <li>Alertes de marché BVC — toggle global</li>
+        <li>Résumé hebdomadaire — toggle (rapport de performance)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Export & Import</h4>
+      <ul>
+        <li>Export PDF Patrimoine (PatriMoi+)</li>
+        <li>Export PDF Budget (PatriMoi+)</li>
+        <li>Import CSV (coller le texte CSV dans un champ de saisie)</li>
+        <li>Partager le résumé patrimonial via iOS Share Sheet</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Alertes BVC</h4>
+      <ul>
+        <li>Liste des alertes configurées par ticker</li>
+        <li>Ajouter / modifier / supprimer / activer-désactiver</li>
+        <li>Voir section 9 pour le détail</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>À propos</h4>
+      <ul>
+        <li>Version de l'application</li>
+        <li>Proverbe du jour (PageProverbe)</li>
+        <li>Informations légales</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 13. SOURCES DE DONNÉES ═══════════ -->
+<section id="sources">
+  <div class="sec-header">
+    <span class="sec-num">13</span>
+    <div><h2>Sources de données en temps réel</h2><div class="sec-sub">Comment PatriMoi obtient les cours du marché</div></div>
+  </div>
+
+  <p>PatriMoi n'a pas de backend propriétaire pour les données de marché. Les cours sont récupérés depuis des sources officielles via des workflows automatisés.</p>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Donnée</th><th>Source</th><th>Mécanisme</th><th>Cache MMKV</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Cours BVC</strong><br>70+ tickers + MASI</td>
+          <td>casablanca-bourse.com</td>
+          <td>GitHub Actions <code>bvc.yml</code> → JSON statique toutes les 30 min</td>
+          <td>30 min fraîcheur · 24h stale</td>
+        </tr>
+        <tr>
+          <td><strong>Prix de l'Or</strong><br>DH/gramme</td>
+          <td>Cours international converti</td>
+          <td>GitHub Actions <code>or.yml</code> → JSON statique</td>
+          <td>30 min fraîcheur</td>
+        </tr>
+        <tr>
+          <td><strong>Taux de change</strong><br>18 devises → MAD</td>
+          <td>Bank Al-Maghrib (bkam.ma)</td>
+          <td>Fetch XML direct depuis l'app à la demande</td>
+          <td>30 min fraîcheur</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-red">
+    <strong>Règle R8 — Données de marché non persistées en cloud :</strong> les cours (BVC), prix (or), taux (devises) et dates de mise à jour sont systématiquement retirés des données avant synchronisation Supabase. Seules les quantités et prix de revient saisis par l'utilisateur sont sauvegardés dans le cloud.
+  </div>
+
+  <h3>Disponibilité offline</h3>
+  <div class="card">
+    <ul>
+      <li>En l'absence de connexion, l'app affiche une bannière d'avertissement jaune</li>
+      <li>Les valorisations continuent d'être calculées à partir des derniers cours en cache MMKV</li>
+      <li>Les mutations (modifications de données) sont stockées dans la queue Outbox et synchronisées au retour de la connexion</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<div style="border-top:1px solid var(--border);padding:32px 0;color:var(--text3);font-size:12px;text-align:center">
+  <p>PatriMoi v1.6 — Spécification Fonctionnelle Détaillée — Juillet 2026</p>
+  <p style="margin-top:4px">Document confidentiel — usage interne</p>
+</div>
+
+</div><!-- /.wrapper -->
+</body>
+</html>

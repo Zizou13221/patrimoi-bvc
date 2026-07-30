@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { C } from '../constants/colors';
 import { generateConseils } from '../utils/conseils';
@@ -6,11 +6,33 @@ import { calcOr, calcImmo, calcPEA, calcCT, calcCarnet, calcLiquide, calcBanque 
 import { fmt } from '../utils/fmt';
 import { Card, IconBox, BarH, SectionTitle, TopBar } from '../components/shared';
 import { usePatrimoineStore } from '../store/patrimoineStore';
+import { trackScoreSanteViewed } from '../utils/analytics';
 
 const PageConseils = React.memo(function PageConseils({ onNav }) {
   const data                = usePatrimoineStore(s => s.data);
   // generateConseils retourne { conseils, total } — un seul useMemo
   const { conseils, total } = useMemo(() => generateConseils(data), [data]);
+
+  // E12 — tracker le score santé une fois par session (pas à chaque re-render)
+  const scoreFired = useRef(false);
+  useEffect(() => {
+    if (scoreFired.current || total === 0) return;
+    scoreFired.current = true;
+    // calcul simplifié du score pour l'event (même logique que le rendu)
+    try {
+      const { calcOr: cO, calcImmo: cI, calcPEA: cP, calcCT: cC, calcCarnet: cCa, calcLiquide: cL, calcBanque: cB } = require('../utils/calc');
+      const orVal = cO(data.or, data.prixOr), immoVal = cI(data.immobilier);
+      const peaVal = cP(data.pea), ctVal = cC(data.ct), carnetV = cCa(data.carnet);
+      const liqV = cL(data.liquidites) + cB(data.banque);
+      const divScore = Math.min(100, (orVal > 0 ? Math.min(25, 10 + (orVal/total)*150) : 0) + (immoVal > 0 ? Math.min(25, 10 + (immoVal/total)*50) : 0) + (peaVal > 0 ? Math.min(25, 10 + (peaVal/total)*150) : 0) + (ctVal > 0 ? Math.min(25, 10 + (ctVal/total)*150) : 0));
+      const carnScore = Math.min(100, total > 0 ? (carnetV/total >= 0.10 ? 100 : (carnetV/total/0.10)*100) : 0);
+      const bvcScore  = Math.min(100, total > 0 ? ((peaVal+ctVal)/total >= 0.15 ? 100 : ((peaVal+ctVal)/total/0.15)*100) : 0);
+      const liqRatio  = total > 0 ? liqV/total : 0;
+      const liqScore  = Math.min(100, Math.max(0, 100 - Math.abs(liqRatio - 0.15)/0.15*100));
+      const globalScore = Math.round((divScore + carnScore + bvcScore + liqScore) / 4);
+      trackScoreSanteViewed(globalScore);
+    } catch {}
+  }, [data, total]); // eslint-disable-line
 
   const priorityLabel = (p) => p === 1 ? 'Urgent' : p === 2 ? 'Important' : 'À considérer';
   const priorityBg    = (p) => p === 1 ? '#FFF0F0' : p === 2 ? '#FFF8E8' : '#F0F8FF';
@@ -18,6 +40,20 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
   return (
     <View style={{ flex:1 }}>
       <TopBar title="Conseils & Ressources" subtitle="Basés sur votre vrai portfolio"/>
+
+      {/* ── Disclaimer AMMC ───────────────────────────────────────────────── */}
+      <View style={{
+        backgroundColor: 'rgba(231,76,60,0.07)',
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(231,76,60,0.18)',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+      }}>
+        <Text style={{ fontSize: 11, color: '#C0392B', lineHeight: 17 }}>
+          ⚠️ À titre informatif uniquement — non constitutif d'un conseil en investissement au sens de la réglementation AMMC. Consultez un professionnel avant toute décision financière.
+        </Text>
+      </View>
+
       <ScrollView style={{ flex:1, backgroundColor:C.g1 }} contentContainerStyle={{ padding:12 }}>
 
         {conseils.length > 0 ? (
@@ -25,7 +61,7 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
             <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
               <View style={{ width:8, height:8, borderRadius:4, backgroundColor:C.gpos }}/>
               <Text style={{ fontWeight:'700', fontSize:14, color:C.dark }}>
-                {conseils.length} recommandation{conseils.length > 1 ? 's' : ''} pour vous
+                {conseils.length} piste{conseils.length > 1 ? 's' : ''} d'optimisation
               </Text>
             </View>
             {conseils.map((c) => (

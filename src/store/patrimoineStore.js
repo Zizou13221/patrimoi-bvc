@@ -51,6 +51,13 @@ export const usePatrimoineStore = create((set) => ({
   onboardingDone: null,
   setOnboardingDone: (v) => set({ onboardingDone: v }),
 
+  // ── Abonnement ────────────────────────────────────────────
+  // false par défaut — mis à true par StoreKit (Task StoreKit complet)
+  // Features PatriMoi+ : historique/snapshots, PDF natif, alertes BVC
+  // Features gratuites : sync cloud JSONB de base (patrimoine_data)
+  isPremium: false,
+  setIsPremium: (v) => set({ isPremium: v }),
+
   // ── UI / sync ─────────────────────────────────────────────
   isRefreshing: false,
   bvcStatus:    'loading',

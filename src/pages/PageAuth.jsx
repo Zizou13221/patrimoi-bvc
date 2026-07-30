@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { C } from '../constants/colors';
 import { signIn, signUp, resetPassword } from '../utils/auth';
+import { trackAccountCreated, trackDemoModeUsed, identifyUser } from '../utils/analytics';
 
 // ── Composants locaux ─────────────────────────────────────
 const Input = ({ label, value, onChangeText, secureTextEntry, keyboardType, autoCapitalize, placeholder }) => (
@@ -87,6 +88,7 @@ export default function PageAuth({ onAuthenticated, onDemo }) {
     });
     setLoading(false);
     if (err) { setError(err); return; }
+    trackAccountCreated();
     // Supabase envoie un email de confirmation par défaut
     setSuccess('Compte créé ! Vérifiez votre boîte mail pour confirmer votre adresse.');
     setTab('login');
@@ -211,7 +213,16 @@ export default function PageAuth({ onAuthenticated, onDemo }) {
                 }
               </TouchableOpacity>
               <Text style={{ color: 'rgba(180,230,200,0.6)', fontSize: 10, textAlign: 'center', marginTop: 10 }}>
-                En créant un compte, vous acceptez nos CGU et notre politique de confidentialité.
+                En créant un compte, vous acceptez nos{' '}
+                <Text
+                  style={{ color: 'rgba(108,142,247,0.85)', textDecorationLine: 'underline' }}
+                  onPress={() => {
+                    try { require('react-native').Linking.openURL('https://zineddineothmane.github.io/PatriMoi/privacy-policy.html'); } catch {}
+                  }}
+                >
+                  Conditions d'utilisation et Politique de confidentialité
+                </Text>
+                .
               </Text>
             </>
           )}
@@ -242,7 +253,7 @@ export default function PageAuth({ onAuthenticated, onDemo }) {
 
         {/* Mode démo */}
         {onDemo && (
-          <TouchableOpacity onPress={onDemo} style={{ marginTop: 20, alignItems: 'center' }} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => { trackDemoModeUsed(); onDemo?.(); }} style={{ marginTop: 20, alignItems: 'center' }} activeOpacity={0.7}>
             <Text style={{ color: 'rgba(180,230,200,0.6)', fontSize: 13 }}>
               Continuer sans compte (données locales uniquement)
             </Text>

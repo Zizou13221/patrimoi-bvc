@@ -68,7 +68,11 @@ function makeSupabaseStub() {
       select: () => ({ eq: () => ({ single: noopAsync }) }),
       upsert: () => ({ select: () => ({ single: noopAsync }) }),
       update: () => ({ eq: () => noopAsync() }),
+      delete: () => ({ eq: () => noopAsync() }),
     }),
+    functions: {
+      invoke: (_name) => Promise.resolve({ data: null, error: 'Supabase non initialisé' }),
+    },
   };
 }
 

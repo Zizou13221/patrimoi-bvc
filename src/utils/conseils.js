@@ -50,7 +50,7 @@ export function generateConseils(data) {
     conseils.push({
       id: 'or', priority: 3, couleur: C.gold, icon: '◈',
       titre: 'Faible exposition à l\'or',
-      corps: `L'or représente seulement ${Math.round(orRatio * 100)}% de votre patrimoine. Les experts recommandent 5 à 10% en valeur refuge, surtout face à l'inflation du dirham.`,
+      corps: `L'or représente seulement ${Math.round(orRatio * 100)}% de votre patrimoine. Une répartition courante est 5 à 10% en valeur refuge, surtout face à l'inflation du dirham. À titre indicatif.`,
       action: 'Voir mon or', nav: 'actifs', sub: 'or',
     });
   }
