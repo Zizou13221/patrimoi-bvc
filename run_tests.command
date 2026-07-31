@@ -8,8 +8,8 @@ cp -r "$HOME/Claude/Projects/PatriMoi/__tests__/." "$APP/__tests__/"
 cp "$HOME/Claude/Projects/PatriMoi/jsconfig.json" "$APP/jsconfig.json" 2>/dev/null || true
 mkdir -p "$APP/.github/workflows"
 cp -r "$HOME/Claude/Projects/PatriMoi/.github/." "$APP/.github/" 2>/dev/null || true
-# Sync new utils (Phase 3-5)
-for f in migrations.js history.js biometrics.js; do
+# Sync new utils (Phase 3-5 + v1.6)
+for f in migrations.js history.js biometrics.js analytics.js storekit.js bvcAlerts.js; do
   SRC="$HOME/Claude/Projects/PatriMoi/src/utils/$f"
   [ -f "$SRC" ] && cp "$SRC" "$APP/src/utils/$f" && echo "✓ $f"
 done

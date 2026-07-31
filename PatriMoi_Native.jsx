@@ -128,6 +128,30 @@ if (__DEV__) (function runTNR() {
   run('valOr sans offert',         () => valOr({quantite:250,prixOffert:null},905),                                                        226250);
   run('valOr avec offert > estim', () => valOr({quantite:100,prixOffert:100000},905),                                                      100000);
   run('totalPatrimoine > 1.8M',    () => totalPatrimoine(D) > 1800000,                                                                     true);
+
+  // ── fmt.js ────────────────────────────────────────────────────────────────
+  const { fmt, fmtN, pctDiff } = require('./src/utils/fmt');
+  run('fmt 0',                     () => fmt(0),                                                                                           '0 DH');
+  run('fmt 1500',                  () => fmt(1500),                                                                                        '1 500 DH');
+  run('pctDiff base=0',            () => pctDiff(100, 0),                                                                                  0);
+  run('pctDiff +50%',              () => pctDiff(150, 100),                                                                                50);
+  run('pctDiff -25%',              () => pctDiff(75, 100),                                                                                 -25);
+
+  // ── migrations.js ─────────────────────────────────────────────────────────
+  const { migrateData, CURRENT_SCHEMA_VERSION } = require('./src/utils/migrations');
+  run('migrateData null → null',   () => migrateData(null),                                                                               null);
+  run('migrateData vide → v' + CURRENT_SCHEMA_VERSION, () => migrateData({}).schemaVersion,                                               CURRENT_SCHEMA_VERSION);
+  run('migrateData préserve banque', () => migrateData({ banque:[{solde:42}] }).banque[0].solde,                                           42);
+
+  // ── storekit.js ───────────────────────────────────────────────────────────
+  const { SUBSCRIPTION_ENABLED } = require('./src/utils/storekit');
+  run('SUBSCRIPTION_ENABLED=false', () => SUBSCRIPTION_ENABLED,                                                                           false);
+
+  // ── analytics stubs (no crash) ────────────────────────────────────────────
+  const analytics = require('./src/utils/analytics');
+  run('analytics exports 14 fns',  () => ['trackOnboardingCompleted','trackAccountCreated','trackFirstAssetAdded','trackThreeCategoriesFilled','trackBudgetFirstEntry','trackPaywallViewed','trackTrialStarted','trackSubscriptionStarted','trackSyncConflict','trackExportPDF','trackFirstSyncCompleted','trackScoreSanteViewed','trackDemoModeUsed','trackBvcAlertAdded'].every(fn => typeof analytics[fn] === 'function'), true);
+  run('analytics no crash',        () => { try { analytics.trackDemoModeUsed(); return true; } catch { return false; } },                  true);
+
   console.log('[PatriMoi TNR] ' + ok + '/' + (ok+ko) + ' tests ' + (ko===0?'OK':'— '+ko+' ECHEC(S)'));
 })();
 
