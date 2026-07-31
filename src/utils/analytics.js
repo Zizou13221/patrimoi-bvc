@@ -36,11 +36,8 @@ try {
     sendFeatureFlagEvent:             false,
   });
   posthog.identify('$anonymous'); // anonyme par défaut, identifié après login
-} catch (e) {
-  // PostHog non installé — pas de tracking (fail-safe)
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    console.warn('[Analytics] PostHog non disponible:', e?.message);
-  }
+} catch {
+  // PostHog non installé — pas de tracking (fail-safe, silence volontaire)
 }
 
 // ── Helper interne ─────────────────────────────────────────

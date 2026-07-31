@@ -55,7 +55,10 @@ export const usePatrimoineStore = create((set) => ({
   // false par défaut — mis à true par StoreKit (Task StoreKit complet)
   // Features PatriMoi+ : historique/snapshots, PDF natif, alertes BVC
   // Features gratuites : sync cloud JSONB de base (patrimoine_data)
-  isPremium: false,
+  // true par défaut pendant la phase de lancement (SUBSCRIPTION_ENABLED=false)
+  // → toutes les features premium sont accessibles sans abonnement
+  // Remettre à false quand SUBSCRIPTION_ENABLED=true dans storekit.js
+  isPremium: true,
   setIsPremium: (v) => set({ isPremium: v }),
 
   // ── UI / sync ─────────────────────────────────────────────
