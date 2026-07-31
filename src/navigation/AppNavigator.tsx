@@ -7,6 +7,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { usePatrimoineStore } from '../store/patrimoineStore';
 import { C } from '../constants/colors';
 import { fetchPrixOr, fetchBVC, applyBVCCours } from '../utils/api';
@@ -113,13 +114,13 @@ export function AppNavigator() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.white }}>
       <View style={{ flex: 1 }}>
-        {currentPage === 'proverbe'  && <PageProverbe  onNav={onNav} />}
-        {currentPage === 'dashboard' && <PageDashboard onNav={onNav} onRefreshOr={refreshOr} onRefreshBVC={refreshBVC} />}
-        {currentPage === 'actifs'    && <PageActifs        onNav={onNav} />}
-        {currentPage === 'budget'    && <PageSuiviBudget  onNav={onNav} />}
-        {currentPage === 'conseils'  && <PageConseils     onNav={onNav} />}
-        {currentPage === 'apropos'   && <PageAPropos />}
-        {currentPage === 'params'    && <PageParams onSignOut={handleSignOut} onObjectifChange={setObjectif} onTrackingStartChange={setTrackingStartDate} onNav={onNav} />}
+        {currentPage === 'proverbe'  && <ErrorBoundary context="accueil"><PageProverbe  onNav={onNav} /></ErrorBoundary>}
+        {currentPage === 'dashboard' && <ErrorBoundary context="dashboard"><PageDashboard onNav={onNav} onRefreshOr={refreshOr} onRefreshBVC={refreshBVC} /></ErrorBoundary>}
+        {currentPage === 'actifs'    && <ErrorBoundary context="actifs"><PageActifs        onNav={onNav} /></ErrorBoundary>}
+        {currentPage === 'budget'    && <ErrorBoundary context="budget"><PageSuiviBudget  onNav={onNav} /></ErrorBoundary>}
+        {currentPage === 'conseils'  && <ErrorBoundary context="conseils"><PageConseils     onNav={onNav} /></ErrorBoundary>}
+        {currentPage === 'apropos'   && <ErrorBoundary context="apropos"><PageAPropos /></ErrorBoundary>}
+        {currentPage === 'params'    && <ErrorBoundary context="params"><PageParams onSignOut={handleSignOut} onObjectifChange={setObjectif} onTrackingStartChange={setTrackingStartDate} onNav={onNav} /></ErrorBoundary>}
       </View>
       <NavBar current={currentPage} onPress={onTabPress} />
     </SafeAreaView>

@@ -60,6 +60,10 @@ cp "$SRC/src/utils/keychainStorage.js" "$DST/src/utils/keychainStorage.js" && ec
 cp "$SRC/src/utils/env.js"            "$DST/src/utils/env.js"            && echo "✓ env.js (T6 — Supabase config centralisée)"
 cp "$SRC/src/utils/pinHash.js"        "$DST/src/utils/pinHash.js"        && echo "✓ pinHash.js (T2 — SHA-256 PIN)"
 cp "$SRC/src/utils/bvcAlerts.js"      "$DST/src/utils/bvcAlerts.js"      && echo "✓ bvcAlerts.js (alertes cours BVC)"
+cp "$SRC/src/utils/analytics.js"     "$DST/src/utils/analytics.js"     2>/dev/null && echo "✓ analytics.js (v1.6 — PostHog 14 events)"
+cp "$SRC/src/utils/storekit.js"      "$DST/src/utils/storekit.js"      2>/dev/null && echo "✓ storekit.js (v1.6 — IAP + SUBSCRIPTION_ENABLED=false)"
+cp "$SRC/src/utils/errorLogger.js"   "$DST/src/utils/errorLogger.js"   2>/dev/null && echo "✓ errorLogger.js (v1.6 — crash logger → Supabase)"
+cp "$SRC/src/pages/PagePaywall.jsx"  "$DST/src/pages/PagePaywall.jsx"  2>/dev/null && echo "✓ PagePaywall.jsx (v1.6 — écran paywall)"
 
 # Store slices (modifiés)
 mkdir -p "$DST/src/store/slices"
