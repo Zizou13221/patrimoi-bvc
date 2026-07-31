@@ -1512,18 +1512,28 @@ ${(epargneOps.length > 0 || allInvests.length > 0) ? `
         <Text style={{ fontSize:11, fontWeight:'600', color:C.g3, marginTop:14, marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Abonnement</Text>
         <Card style={{ borderLeftWidth:4, borderLeftColor:C.pri }}>
           <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
-            <View>
-              <Text style={{ fontWeight:'700', fontSize:14, color:C.dark }}>PatriMoi+ — Accès complet</Text>
-              <Text style={{ fontSize:12, color:C.gpos, marginTop:2 }}>✓ Gratuit pendant la phase de lancement</Text>
+            <View style={{ flex:1 }}>
+              <Text style={{ fontWeight:'700', fontSize:14, color:C.dark }}>PatriMoi+ — Phase de lancement</Text>
+              <Text style={{ fontSize:12, color:C.gpos, marginTop:2 }}>✓ Toutes les fonctionnalités incluses</Text>
             </View>
-            <View style={{ alignItems:'flex-end' }}>
-              <Text style={{ fontWeight:'700', fontSize:16, color:C.pri }}>29 DH</Text>
-              <Text style={{ fontSize:10, color:C.g3 }}>/mois (bientôt)</Text>
+            <View style={{ alignItems:'flex-end', marginLeft:8 }}>
+              <Text style={{ fontWeight:'700', fontSize:15, color:C.gpos, textDecorationLine:'line-through' }}>29 DH</Text>
+              <Text style={{ fontSize:11, fontWeight:'700', color:C.pri }}>Gratuit</Text>
             </View>
           </View>
           <BtnSec
             style={{ marginTop:10 }}
-            onPress={() => Alert.alert('PatriMoi+', 'Toutes les fonctionnalités sont gratuites pendant la phase de lancement.\n\nL\'abonnement à 29 DH/mois sera activé prochainement.')}
+            onPress={() => Alert.alert(
+              'PatriMoi+ — Ce qui est prévu',
+              '🎁 Pendant la phase de lancement (environ 6 mois), toutes les fonctionnalités sont gratuites pour les premiers utilisateurs.\n\n' +
+              '📦 PatriMoi+ comprend :\n' +
+              '• Historique & snapshots du patrimoine\n' +
+              '• Export PDF (rapport complet)\n' +
+              '• Alertes cours BVC personnalisées\n' +
+              '• Sync cloud multi-appareils\n\n' +
+              '💳 Après la phase de lancement, un abonnement à 29 DH/mois sera proposé. Les utilisateurs fidèles seront notifiés à l\'avance.',
+              [{ text: 'Compris', style: 'default' }]
+            )}
           >
             En savoir plus →
           </BtnSec>

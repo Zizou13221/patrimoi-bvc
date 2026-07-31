@@ -343,6 +343,18 @@ export default function PatriMoi() {
           // Offline : fallback MMKV (lazy migration depuis AsyncStorage)
           const rawStored = await smartRead(STORAGE_KEY);
           if (rawStored) { try { setData(migrateData(JSON.parse(rawStored))); } catch {} }
+        } else {
+          // Nouveau compte (remoteData=null, pas d'erreur) :
+          // Migrer les données démo si l'utilisateur avait exploré en mode démo
+          const rawDemo = await smartRead(STORAGE_KEY + '_demo');
+          if (rawDemo) {
+            try {
+              const migrated = migrateData(JSON.parse(rawDemo));
+              setData(migrated); // déclenche enqueueSync (user set + !demoMode) → upload Supabase
+              storage.delete(STORAGE_KEY + '_demo');
+              await AsyncStorage.removeItem(STORAGE_KEY + '_demo').catch(() => {});
+            } catch {}
+          }
         }
       } else if (demoMode) {
         const rawStored = await smartRead(STORAGE_KEY + '_demo');
