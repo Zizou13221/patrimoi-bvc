@@ -10,38 +10,7 @@ import { Card, IconBox, BarH, SparklineInteractive, DonutSimple } from '../compo
 import { usePatrimoineStore } from '../store/patrimoineStore';
 import { getBvcCache } from '../utils/api';
 import { upsertSnapshot } from '../utils/history';
-import { PROVERBES } from '../constants/data';
 
-// ── Proverbe du Jour (card compacte) ─────────────────────────────────────────
-function ProverbeCard() {
-  const today     = new Date();
-  const dayOfYear = Math.max(1, Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000));
-  const prv       = PROVERBES[dayOfYear % PROVERBES.length];
-  const initials  = prv.a.split(' ').map(w => w[0]).slice(0, 2).join('');
-  return (
-    <Card style={{ backgroundColor:C.priD, marginBottom:10 }}>
-      <Text style={{ color:'rgba(180,230,200,0.8)', fontSize:10, fontWeight:'600', marginBottom:6 }}>
-        Proverbe du jour
-      </Text>
-      <Text style={{ color:C.white, fontSize:13, fontWeight:'700', lineHeight:20, marginBottom:10 }}>
-        {'"'}{prv.q}{'"'}
-      </Text>
-      <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:10 }}>
-        <View style={{ width:34, height:34, borderRadius:17, backgroundColor:C.acc, alignItems:'center', justifyContent:'center' }}>
-          <Text style={{ color:C.white, fontWeight:'700', fontSize:12 }}>{initials}</Text>
-        </View>
-        <View style={{ flex:1 }}>
-          <Text style={{ color:C.white, fontWeight:'700', fontSize:12 }}>{prv.a}</Text>
-          <Text style={{ color:'rgba(160,210,180,0.8)', fontSize:10 }}>{prv.d}</Text>
-        </View>
-      </View>
-      <View style={{ backgroundColor:'rgba(20,90,45,0.9)', borderRadius:8, padding:10, borderLeftWidth:3, borderLeftColor:C.acc }}>
-        <Text style={{ color:C.acc, fontWeight:'700', fontSize:10, marginBottom:3 }}>PatriMoi dit :</Text>
-        <Text style={{ color:'rgba(200,240,210,0.9)', fontSize:11, lineHeight:17 }}>{prv.comment}</Text>
-      </View>
-    </Card>
-  );
-}
 
 const PageDashboard = React.memo(function PageDashboard({
   onNav, onRefreshOr, onRefreshBVC,
@@ -361,9 +330,6 @@ const PageDashboard = React.memo(function PageDashboard({
       </View>
 
       <View style={{ padding:12 }}>
-
-        {/* Proverbe du jour */}
-        <ProverbeCard />
 
         {/* Objectif patrimonial */}
         {objectif && objPct !== null && (
