@@ -13,7 +13,6 @@ import { C } from '../constants/colors';
 import { fetchPrixOr, fetchBVC, applyBVCCours } from '../utils/api';
 import { fmtDate } from '../utils/fmt';
 
-import PageProverbe  from '../pages/PageProverbe';
 import PageDashboard from '../pages/PageDashboard';
 import PageActifs        from '../pages/PageActifs';
 import PageSuiviBudget  from '../pages/PageSuiviBudget';
@@ -23,12 +22,11 @@ import PageParams    from '../pages/PageParams';
 
 // ── Onglets ───────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { name: 'proverbe',  label: 'Accueil',   abbr: 'ACC' },
-  { name: 'dashboard', label: 'Dashboard',  abbr: 'DBD' },
-  { name: 'actifs',    label: 'Actifs',     abbr: 'ACT' },
-  { name: 'budget',    label: 'Budget',     abbr: 'BDG' },
-  { name: 'conseils',  label: 'Conseils',   abbr: 'CNS' },
-  { name: 'params',    label: 'Params',     abbr: 'PRM' },
+  { name: 'dashboard', label: 'Accueil',  abbr: 'ACC' },
+  { name: 'actifs',    label: 'Actifs',   abbr: 'ACT' },
+  { name: 'budget',    label: 'Budget',   abbr: 'BDG' },
+  { name: 'conseils',  label: 'Conseils', abbr: 'CNS' },
+  { name: 'params',    label: 'Params',   abbr: 'PRM' },
 ];
 
 // ── NavBar custom ─────────────────────────────────────────────────────────────
@@ -114,8 +112,7 @@ export function AppNavigator() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.white }}>
       <View style={{ flex: 1 }}>
-        {currentPage === 'proverbe'  && <ErrorBoundary context="accueil"><PageProverbe  onNav={onNav} /></ErrorBoundary>}
-        {currentPage === 'dashboard' && <ErrorBoundary context="dashboard"><PageDashboard onNav={onNav} onRefreshOr={refreshOr} onRefreshBVC={refreshBVC} /></ErrorBoundary>}
+        {currentPage === 'dashboard' && <ErrorBoundary context="accueil"><PageDashboard onNav={onNav} onRefreshOr={refreshOr} onRefreshBVC={refreshBVC} /></ErrorBoundary>}
         {currentPage === 'actifs'    && <ErrorBoundary context="actifs"><PageActifs        onNav={onNav} /></ErrorBoundary>}
         {currentPage === 'budget'    && <ErrorBoundary context="budget"><PageSuiviBudget  onNav={onNav} /></ErrorBoundary>}
         {currentPage === 'conseils'  && <ErrorBoundary context="conseils"><PageConseils     onNav={onNav} /></ErrorBoundary>}

@@ -292,7 +292,7 @@ export default function PatriMoi() {
 
     const unsub = onAuthStateChange((session) => {
       if (session?.user) {
-        setPage('proverbe', null);
+        setPage('dashboard', null);
         setUser(session.user);
         setDemoMode(false);                                     // même fix
         AsyncStorage.removeItem(DEMO_KEY).catch(() => {});     // même fix
@@ -534,8 +534,8 @@ export default function PatriMoi() {
     return (
       <ErrorBoundary>
         <PageAuth
-          onAuthenticated={(u) => { setPage('proverbe', null); setUser(u); }}
-          onDemo={() => { setPage('proverbe', null); setDemoMode(true); AsyncStorage.setItem(DEMO_KEY, 'true').catch(() => {}); }}
+          onAuthenticated={(u) => { setPage('dashboard', null); setUser(u); }}
+          onDemo={() => { setPage('dashboard', null); setDemoMode(true); AsyncStorage.setItem(DEMO_KEY, 'true').catch(() => {}); }}
         />
       </ErrorBoundary>
     );
