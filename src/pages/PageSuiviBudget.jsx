@@ -931,11 +931,11 @@ const ModalRevenu = ({ visible, onClose, onSave, onDelete, editingRevenu }) => {
           {label === 'Loyer reçu' ? (
             <>
               <Text style={{ fontSize:12, fontWeight:'600', color:C.dark, marginBottom:8 }}>Bien immobilier concerné</Text>
-              {immobilier.length === 0 ? (
-                <Text style={{ fontSize:12, color:C.g3, marginBottom:14 }}>Aucun bien enregistré dans Actifs → Immobilier</Text>
+              {immobilier.filter(b => !b.estLogement).length === 0 ? (
+                <Text style={{ fontSize:12, color:C.g3, marginBottom:14 }}>Aucun bien locatif enregistré dans Actifs → Immobilier</Text>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom:14 }}>
-                  {immobilier.map(b => {
+                  {immobilier.filter(b => !b.estLogement).map(b => {
                     const sel = bienId === b.id;
                     return (
                       <TouchableOpacity
