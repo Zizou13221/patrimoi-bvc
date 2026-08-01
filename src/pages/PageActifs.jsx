@@ -1601,6 +1601,7 @@ function SubImmobilier({ data, setData, onBack }) {
         jour: loyerJ,
         actif: true,
         dernierAjout: '',
+        bienId: entry.id,
       } : null;
       setData(d => ({
         ...d,
@@ -1644,7 +1645,12 @@ function SubImmobilier({ data, setData, onBack }) {
         {immo.map((b, i) => {
           const ve = b.prixM2 * b.surface, vr = valImmo(b);
           const loyerLie = b.type === 'Bien locatif'
-            ? (data.revenus_recurrents || []).find(r => r.label?.includes(b.nom))
+            ? (data.revenus_recurrents || []).find(r =>
+                r.actif !== false && (
+                  (b.id && r.bienId === b.id) ||
+                  r.label?.toLowerCase().includes(b.nom?.toLowerCase())
+                )
+              )
             : null;
           return (
             <Card key={i}>

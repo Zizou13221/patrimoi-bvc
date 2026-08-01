@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, Modal } from 'react-native';
 import { C } from '../constants/colors';
 import {
   calcLiquide, calcBanque, calcCarnet, calcPEA, calcPEACout,
@@ -27,7 +27,8 @@ const PageDashboard = React.memo(function PageDashboard({
   const isPremium           = usePatrimoineStore(s => s.isPremium);
   const trackingStartDate   = usePatrimoineStore(s => s.trackingStartDate);
   const setHistory          = usePatrimoineStore(s => s.setHistory);
-  const [period, setPeriod] = useState('1A');
+  const [period, setPeriod]           = useState('1A');
+  const [showRendement, setShowRendement] = useState(false);
   const prenom              = user?.user_metadata?.prenom || user?.email?.split('@')[0] || null;
 
   const peaVal  = useMemo(() => calcPEA(data.pea),            [data.pea]);
@@ -404,37 +405,113 @@ const PageDashboard = React.memo(function PageDashboard({
           </View>
         </Card>
 
-        {/* Taux de rendement */}
+        {/* Rendement annuel — carte tappable */}
         {rendement && !discret && (
-          <Card style={{ borderLeftWidth:4, borderLeftColor:C.gpos, marginBottom:10 }}>
-            <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-              <Text style={{ fontWeight:'700', fontSize:13, color:C.dark }}>Rendement annualisé 📈</Text>
-              <View style={{ backgroundColor:C.gpos, borderRadius:8, paddingHorizontal:10, paddingVertical:4 }}>
-                <Text style={{ fontWeight:'800', fontSize:14, color:'#fff' }}>{rendement.taux.toFixed(2)}%</Text>
+          <>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setShowRendement(true)}
+              style={{ backgroundColor:C.white, borderRadius:14, padding:14, marginBottom:10, borderLeftWidth:4, borderLeftColor:C.gpos,
+                shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.06, shadowRadius:4, elevation:2 }}
+            >
+              <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+                <View>
+                  <Text style={{ fontWeight:'700', fontSize:13, color:C.dark }}>Rendement annuel 📈</Text>
+                  <Text style={{ fontSize:11, color:C.g3, marginTop:2 }}>Hors plus-values latentes</Text>
+                </View>
+                <View style={{ alignItems:'flex-end' }}>
+                  <Text style={{ fontWeight:'800', fontSize:18, color:C.gpos }}>+{Math.round(rendement.totalAnnuel).toLocaleString('fr-FR')} DH</Text>
+                  <View style={{ backgroundColor:C.gpos, borderRadius:6, paddingHorizontal:8, paddingVertical:2, marginTop:3 }}>
+                    <Text style={{ fontWeight:'700', fontSize:12, color:'#fff' }}>{rendement.taux.toFixed(2)}% / an</Text>
+                  </View>
+                </View>
               </View>
-            </View>
-            <View style={{ flexDirection:'row', gap:8 }}>
-              {rendement.interetsCarnet > 0 && (
-                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
-                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Intérêts carnet</Text>
-                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.interetsCarnet).toLocaleString('fr-FR')} DH/an</Text>
+              <Text style={{ fontSize:10, color:C.g3, marginTop:8, textAlign:'right' }}>Appuyer pour le détail →</Text>
+            </TouchableOpacity>
+
+            {/* Modal détail rendement */}
+            <Modal visible={showRendement} transparent animationType="slide" onRequestClose={() => setShowRendement(false)}>
+              <TouchableOpacity style={{ flex:1, backgroundColor:'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={() => setShowRendement(false)}/>
+              <View style={{ backgroundColor:C.white, borderTopLeftRadius:22, borderTopRightRadius:22, padding:22, maxHeight:'80%' }}>
+                <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <Text style={{ fontWeight:'700', fontSize:16, color:C.dark }}>Détail du rendement annuel</Text>
+                  <TouchableOpacity onPress={() => setShowRendement(false)}>
+                    <Text style={{ fontSize:20, color:C.g3 }}>×</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-              {rendement.loyersAnnuels > 0 && (
-                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
-                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Loyers</Text>
-                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.loyersAnnuels).toLocaleString('fr-FR')} DH/an</Text>
-                </View>
-              )}
-              {rendement.dividendesAnnuels > 0 && (
-                <View style={{ flex:1, backgroundColor:'#E8F5E9', borderRadius:8, padding:8, alignItems:'center' }}>
-                  <Text style={{ fontSize:9, color:C.g3, marginBottom:2 }}>Dividendes {new Date().getFullYear()}</Text>
-                  <Text style={{ fontWeight:'700', fontSize:12, color:C.gpos }}>+{Math.round(rendement.dividendesAnnuels).toLocaleString('fr-FR')} DH</Text>
-                </View>
-              )}
-            </View>
-            <Text style={{ fontSize:9, color:C.g3, marginTop:6 }}>Hors plus-values latentes (BVC, immobilier)</Text>
-          </Card>
+                <ScrollView showsVerticalScrollIndicator={false}>
+
+                  {/* Intérêts carnet */}
+                  {rendement.interetsCarnet > 0 && (
+                    <View style={{ marginBottom:16 }}>
+                      <Text style={{ fontWeight:'700', fontSize:12, color:C.g3, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 }}>
+                        Intérêts — Comptes sur carnet
+                      </Text>
+                      {(data.carnet || []).filter(c => c.solde > 0 && c.taux > 0).map((c, i) => (
+                        <View key={i} style={{ backgroundColor:'#F0FBF4', borderRadius:10, padding:12, marginBottom:6, flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+                          <View>
+                            <Text style={{ fontWeight:'600', fontSize:13, color:C.dark }}>{c.banque || 'Carnet'}</Text>
+                            <Text style={{ fontSize:11, color:C.g3 }}>{c.solde.toLocaleString('fr-FR')} DH × {c.taux}%</Text>
+                          </View>
+                          <Text style={{ fontWeight:'700', fontSize:13, color:C.gpos }}>+{Math.round(c.solde * c.taux / 100).toLocaleString('fr-FR')} DH/an</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Loyers */}
+                  {rendement.loyersAnnuels > 0 && (
+                    <View style={{ marginBottom:16 }}>
+                      <Text style={{ fontWeight:'700', fontSize:12, color:C.g3, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 }}>
+                        Loyers perçus
+                      </Text>
+                      {(data.revenus_recurrents || [])
+                        .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+                        .map((r, i) => (
+                          <View key={i} style={{ backgroundColor:'#F0FBF4', borderRadius:10, padding:12, marginBottom:6, flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+                            <View>
+                              <Text style={{ fontWeight:'600', fontSize:13, color:C.dark }}>{r.label}</Text>
+                              <Text style={{ fontSize:11, color:C.g3 }}>Le {r.jour} de chaque mois · {r.montant?.toLocaleString('fr-FR')} DH/mois</Text>
+                            </View>
+                            <Text style={{ fontWeight:'700', fontSize:13, color:C.gpos }}>+{Math.round((r.montant || 0) * 12).toLocaleString('fr-FR')} DH/an</Text>
+                          </View>
+                        ))}
+                    </View>
+                  )}
+
+                  {/* Dividendes */}
+                  {rendement.dividendesAnnuels > 0 && (
+                    <View style={{ marginBottom:16 }}>
+                      <Text style={{ fontWeight:'700', fontSize:12, color:C.g3, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 }}>
+                        Dividendes {new Date().getFullYear()}
+                      </Text>
+                      {(data.operations || [])
+                        .filter(op => op.type === 'revenu' && op.categorie === 'dividende' && new Date(op.date).getFullYear() === new Date().getFullYear())
+                        .map((op, i) => (
+                          <View key={i} style={{ backgroundColor:'#F0FBF4', borderRadius:10, padding:12, marginBottom:6, flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+                            <View>
+                              <Text style={{ fontWeight:'600', fontSize:13, color:C.dark }}>{op.label || 'Dividende'}</Text>
+                              {op.date && <Text style={{ fontSize:11, color:C.g3 }}>{new Date(op.date).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}</Text>}
+                            </View>
+                            <Text style={{ fontWeight:'700', fontSize:13, color:C.gpos }}>+{(op.montant || 0).toLocaleString('fr-FR')} DH</Text>
+                          </View>
+                        ))}
+                    </View>
+                  )}
+
+                  {/* Total */}
+                  <View style={{ backgroundColor:C.priL, borderRadius:12, padding:14, flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
+                    <Text style={{ fontWeight:'700', fontSize:14, color:C.pri }}>Total annuel</Text>
+                    <View style={{ alignItems:'flex-end' }}>
+                      <Text style={{ fontWeight:'800', fontSize:16, color:C.pri }}>+{Math.round(rendement.totalAnnuel).toLocaleString('fr-FR')} DH</Text>
+                      <Text style={{ fontSize:12, color:C.gpos, fontWeight:'700' }}>{rendement.taux.toFixed(2)}% du patrimoine</Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize:10, color:C.g3, textAlign:'center', marginTop:10, marginBottom:4 }}>Hors plus-values latentes (BVC, immobilier)</Text>
+                </ScrollView>
+              </View>
+            </Modal>
+          </>
         )}
 
         {/* Repartition */}
