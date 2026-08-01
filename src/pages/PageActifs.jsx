@@ -1644,14 +1644,14 @@ function SubImmobilier({ data, setData, onBack }) {
 
         {immo.map((b, i) => {
           const ve = b.prixM2 * b.surface, vr = valImmo(b);
-          const loyerLie = b.type === 'Bien locatif'
-            ? (data.revenus_recurrents || []).find(r =>
-                r.actif !== false && (
-                  (b.id && r.bienId === b.id) ||
-                  r.label?.toLowerCase().includes(b.nom?.toLowerCase())
-                )
-              )
-            : null;
+          // Sync Budget↔Actifs : cherche un loyer lié peu importe le type de bien
+          const loyerLie = (data.revenus_recurrents || []).find(r =>
+            r.actif !== false && (
+              (b.id && r.bienId === b.id) ||                                   // match exact par id
+              (b.nom && r.bienNom && r.bienNom === b.nom) ||                   // match bienNom (Budget)
+              r.label?.toLowerCase().includes(b.nom?.toLowerCase())            // fallback label (Actifs auto)
+            )
+          ) || null;
           return (
             <Card key={i}>
               <View style={{ backgroundColor:C.priL, borderRadius:8, padding:10, flexDirection:'row', justifyContent:'space-between', marginBottom:8 }}>
@@ -1664,13 +1664,17 @@ function SubImmobilier({ data, setData, onBack }) {
                 </View>
                 <PLBadge value={vr} base={b.prixAchat}/>
               </View>
-              {b.type === 'Bien locatif' && (
-                <View style={{ backgroundColor: loyerLie ? '#E8F5E9' : '#FFF8E1', borderRadius:8, padding:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                  <Text style={{ fontSize:11, color: loyerLie ? C.gpos : '#D4900A', fontWeight:'600' }}>
-                    {loyerLie ? `🔄 Loyer récurrent : +${loyerLie.montant?.toLocaleString('fr-FR')} DH / mois` : '⚠ Aucun loyer récurrent configuré'}
+              {loyerLie ? (
+                <View style={{ backgroundColor:'#E8F5E9', borderRadius:8, padding:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <Text style={{ fontSize:11, color:C.gpos, fontWeight:'600' }}>
+                    🔄 Loué · +{loyerLie.montant?.toLocaleString('fr-FR')} DH / mois
                   </Text>
                 </View>
-              )}
+              ) : b.type === 'Bien locatif' ? (
+                <View style={{ backgroundColor:'#FFF8E1', borderRadius:8, padding:8, marginBottom:6 }}>
+                  <Text style={{ fontSize:11, color:'#D4900A', fontWeight:'600' }}>⚠ Aucun loyer récurrent configuré</Text>
+                </View>
+              ) : null}
               <InfoRow label="Prix d'achat"      value={fmt(b.prixAchat)} sub={'Acquis en ' + b.datAchat}/>
               <InfoRow label="Valeur estimative" value={fmt(ve)}           sub="Prix/m2 x Surface"/>
               <InfoRow label="Prix offert"       value={b.prixOffert ? fmt(b.prixOffert) : 'N/A'} sub="Meilleure offre recue"/>
