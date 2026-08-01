@@ -195,6 +195,8 @@ export function generateConseils(data) {
   // 2g. Immobilier non rentabilisé (biens sans loyer lié, immo > 40%)
   if (immoRatio > 0.40) {
     const biensNonLoues = (data.immobilier || []).filter(b => {
+      // Exclure résidence principale et terrains (non concernés par la location)
+      if (b.estLogement || b.type === 'Terrain') return false;
       const loyerLie = (data.revenus_recurrents || []).find(r =>
         r.actif !== false && (
           (b.id && r.bienId === b.id) ||

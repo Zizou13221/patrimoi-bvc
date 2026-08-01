@@ -1554,7 +1554,7 @@ function SubOr({ data, setData, onBack }) {
 function SubImmobilier({ data, setData, onBack }) {
   const immo  = data.immobilier;
   const total = calcImmo(immo);
-  const EMPTY_FORM = { nom:'', type:'Bien bati', ville:'', surface:'', prixAchat:'', prixM2:'', prixOffert:'', meth:'estimatif', loyerMontant:'', loyerJour:'1' };
+  const EMPTY_FORM = { nom:'', type:'Bien bati', ville:'', surface:'', prixAchat:'', prixM2:'', prixOffert:'', meth:'estimatif', loyerMontant:'', loyerJour:'1', estLogement:false };
   const [showAdd, setShowAdd] = useState(false);
   const [editIdx, setEditIdx] = useState(-1);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1567,6 +1567,8 @@ function SubImmobilier({ data, setData, onBack }) {
       surface: String(b.surface), prixAchat: String(b.prixAchat),
       prixM2: String(b.prixM2), prixOffert: b.prixOffert ? String(b.prixOffert) : '',
       meth: b.meth || 'estimatif',
+      estLogement: b.estLogement || false,
+      loyerMontant: '', loyerJour: '1',
     });
     setEditIdx(i); setShowAdd(false);
   }
@@ -1577,7 +1579,7 @@ function SubImmobilier({ data, setData, onBack }) {
 
   function saveBien() {
     if (!form.nom || !isNum(form.prixAchat)) return;
-    const { loyerMontant, loyerJour, ...formRest } = form;
+    const { loyerMontant, loyerJour, estLogement, ...formRest } = form;
     const entry = {
       id: editIdx >= 0 ? immo[editIdx].id : Date.now(),
       ...formRest,
@@ -1587,6 +1589,7 @@ function SubImmobilier({ data, setData, onBack }) {
       prixOffert: formRest.prixOffert ? parseFloat(formRest.prixOffert) : null,
       datAchat: editIdx >= 0 ? immo[editIdx].datAchat : new Date().getFullYear().toString(),
       unite: 'm2',
+      estLogement: estLogement || false,
     };
     if (editIdx >= 0) {
       setData(d => ({ ...d, immobilier: d.immobilier.map((x, i) => i === editIdx ? entry : x) }));
@@ -1656,7 +1659,9 @@ function SubImmobilier({ data, setData, onBack }) {
             <Card key={i}>
               <View style={{ backgroundColor:C.priL, borderRadius:8, padding:10, flexDirection:'row', justifyContent:'space-between', marginBottom:8 }}>
                 <View style={{ flexDirection:'row', gap:8, alignItems:'center' }}>
-                  <IconBox label={b.type === 'Terrain' ? 'TRN' : b.type === 'Bien locatif' ? 'LOC' : 'APP'} bg={'#B46428'} size={34} fs={8}/>
+                  <IconBox
+                    label={b.estLogement ? 'LOG' : b.type === 'Terrain' ? 'TRN' : b.type === 'Bien locatif' ? 'LOC' : 'APP'}
+                    bg={b.estLogement ? C.pri : '#B46428'} size={34} fs={8}/>
                   <View>
                     <Text style={{ fontWeight:'700', fontSize:13, color:C.pri }}>{b.nom}</Text>
                     <Text style={{ fontSize:11, color:C.g3 }}>{b.type} — {b.ville} — {b.surface} {b.unite || 'm2'}</Text>
@@ -1664,7 +1669,11 @@ function SubImmobilier({ data, setData, onBack }) {
                 </View>
                 <PLBadge value={vr} base={b.prixAchat}/>
               </View>
-              {loyerLie ? (
+              {b.estLogement ? (
+                <View style={{ backgroundColor:'#EEF4FF', borderRadius:8, padding:8, marginBottom:6, flexDirection:'row', alignItems:'center', gap:6 }}>
+                  <Text style={{ fontSize:11, color:'#3B6BD4', fontWeight:'700' }}>🏠 Résidence principale</Text>
+                </View>
+              ) : loyerLie ? (
                 <View style={{ backgroundColor:'#E8F5E9', borderRadius:8, padding:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                   <Text style={{ fontSize:11, color:C.gpos, fontWeight:'600' }}>
                     🔄 Loué · +{loyerLie.montant?.toLocaleString('fr-FR')} DH / mois
@@ -1694,13 +1703,34 @@ function SubImmobilier({ data, setData, onBack }) {
               {editIdx >= 0 ? 'Modifier le bien' : 'Ajouter un bien'}
             </Text>
             <Input label="Designation"             value={form.nom}        onChangeText={v=>up('nom',v)}        placeholder="Appartement Gueliz"/>
-            <SelectInput label="Type"              value={form.type}       onChange={v=>up('type',v)}           options={['Bien bati','Terrain','Bien locatif']}/>
+            <SelectInput label="Type"              value={form.type}       onChange={v=>{ up('type',v); if(v !== 'Bien bati') up('estLogement', false); }} options={['Bien bati','Terrain','Bien locatif']}/>
+            {form.type === 'Bien bati' && (
+              <TouchableOpacity
+                onPress={() => up('estLogement', !form.estLogement)}
+                activeOpacity={0.7}
+                style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center',
+                  backgroundColor: form.estLogement ? '#EEF4FF' : C.g1,
+                  borderRadius:10, padding:12, marginBottom:8, borderWidth:1,
+                  borderColor: form.estLogement ? '#3B6BD4' : C.g2 }}
+              >
+                <View>
+                  <Text style={{ fontSize:13, fontWeight:'600', color: form.estLogement ? '#3B6BD4' : C.dark }}>🏠 C'est mon logement principal</Text>
+                  <Text style={{ fontSize:11, color:C.g3, marginTop:2 }}>Si coché, aucune proposition de loyer</Text>
+                </View>
+                <View style={{ width:22, height:22, borderRadius:11, borderWidth:2,
+                  borderColor: form.estLogement ? '#3B6BD4' : C.g3,
+                  backgroundColor: form.estLogement ? '#3B6BD4' : 'transparent',
+                  alignItems:'center', justifyContent:'center' }}>
+                  {form.estLogement && <Text style={{ color:'#fff', fontSize:12, fontWeight:'700' }}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+            )}
             <Input label="Ville"                   value={form.ville}      onChangeText={v=>up('ville',v)}      placeholder="Casablanca"/>
             <Input label="Surface (m2)"            value={form.surface}    onChangeText={v=>up('surface',v)}    keyboardType="numeric" unit="m2"/>
             <Input label="Prix d'achat (DH)"       value={form.prixAchat}  onChangeText={v=>up('prixAchat',v)}  keyboardType="numeric"/>
             <Input label="Prix au m2 du secteur"   value={form.prixM2}     onChangeText={v=>up('prixM2',v)}     keyboardType="numeric" unit="DH/m2"/>
             <Input label="Prix offert (optionnel)" value={form.prixOffert} onChangeText={v=>up('prixOffert',v)} keyboardType="numeric"/>
-            {form.type === 'Bien locatif' && editIdx < 0 && (
+            {form.type === 'Bien locatif' && !form.estLogement && editIdx < 0 && (
               <View style={{ backgroundColor:'#E8F5E9', borderRadius:10, padding:12, marginTop:6, borderLeftWidth:3, borderLeftColor:C.gpos }}>
                 <Text style={{ fontSize:12, fontWeight:'700', color:C.gpos, marginBottom:8 }}>🔄 Loyer récurrent (optionnel)</Text>
                 <View style={{ flexDirection:'row', gap:8 }}>
