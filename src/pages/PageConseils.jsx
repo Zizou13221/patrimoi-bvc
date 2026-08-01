@@ -18,18 +18,24 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
   useEffect(() => {
     if (scoreFired.current || total === 0) return;
     scoreFired.current = true;
-    // calcul simplifié du score pour l'event (même logique que le rendu)
     try {
       const { calcOr: cO, calcImmo: cI, calcPEA: cP, calcCT: cC, calcCarnet: cCa, calcLiquide: cL, calcBanque: cB } = require('../utils/calc');
       const orVal = cO(data.or, data.prixOr), immoVal = cI(data.immobilier);
       const peaVal = cP(data.pea), ctVal = cC(data.ct), carnetV = cCa(data.carnet);
       const liqV = cL(data.liquidites) + cB(data.banque);
-      const divScore = Math.min(100, (orVal > 0 ? Math.min(25, 10 + (orVal/total)*150) : 0) + (immoVal > 0 ? Math.min(25, 10 + (immoVal/total)*50) : 0) + (peaVal > 0 ? Math.min(25, 10 + (peaVal/total)*150) : 0) + (ctVal > 0 ? Math.min(25, 10 + (ctVal/total)*150) : 0));
-      const carnScore = Math.min(100, total > 0 ? (carnetV/total >= 0.10 ? 100 : (carnetV/total/0.10)*100) : 0);
-      const bvcScore  = Math.min(100, total > 0 ? ((peaVal+ctVal)/total >= 0.15 ? 100 : ((peaVal+ctVal)/total/0.15)*100) : 0);
-      const liqRatio  = total > 0 ? liqV/total : 0;
-      const liqScore  = Math.min(100, Math.max(0, 100 - Math.abs(liqRatio - 0.15)/0.15*100));
-      const globalScore = Math.round((divScore + carnScore + bvcScore + liqScore) / 4);
+      const bvcTotal = peaVal + ctVal;
+      const classes4 = [orVal, immoVal, bvcTotal, liqV + carnetV];
+      const presence  = classes4.filter(v => v > 0).length * 25;
+      const maxCR     = total > 0 ? Math.max(...classes4.map(v => v / total)) : 0;
+      const divScore  = Math.max(0, Math.min(100, presence - (maxCR > 0.65 ? ((maxCR - 0.65) / 0.35) * 45 : 0)));
+      const liqRatio  = total > 0 ? liqV / total : 0;
+      const liqScore  = liqRatio >= 0.10 && liqRatio <= 0.20 ? 100 : liqRatio < 0.10 ? (liqRatio / 0.10) * 100 : Math.max(0, 100 - (liqRatio - 0.20) / 0.20 * 100);
+      const carnRatio = total > 0 ? carnetV / total : 0;
+      const epScore   = Math.min(100, carnRatio >= 0.10 ? 100 : (carnRatio / 0.10) * 100);
+      const bvcRatio  = total > 0 ? bvcTotal / total : 0;
+      const bvcScore  = Math.min(100, bvcRatio >= 0.15 ? 100 : (bvcRatio / 0.15) * 100);
+      // rendement passif + budget : valeurs neutres pour l'analytics (évite dépendances complexes)
+      const globalScore = Math.round(divScore*0.25 + liqScore*0.20 + epScore*0.20 + bvcScore*0.15 + 37.5*0.15 + 50*0.05);
       trackScoreSanteViewed(globalScore);
     } catch {}
   }, [data, total]); // eslint-disable-line
@@ -97,42 +103,114 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
           </Card>
         )}
 
-        {/* Score de santé patrimoine */}
+        {/* Score de santé patrimoniale — 6 dimensions pondérées */}
         {(() => {
-          const orVal    = calcOr(data.or, data.prixOr);
-          const immoVal  = calcImmo(data.immobilier);
-          const peaVal   = calcPEA(data.pea);
-          const ctVal    = calcCT(data.ct);
-          const carnetV  = calcCarnet(data.carnet);
-          const liqV     = calcLiquide(data.liquidites) + calcBanque(data.banque);
+          const orVal   = calcOr(data.or, data.prixOr);
+          const immoVal = calcImmo(data.immobilier);
+          const peaVal  = calcPEA(data.pea);
+          const ctVal   = calcCT(data.ct);
+          const carnetV = calcCarnet(data.carnet);
+          const liqV    = calcLiquide(data.liquidites) + calcBanque(data.banque);
+          const now     = new Date();
 
-          // Diversification : 25 pts par classe présente, pondérée par le poids (max 100%)
-          const divScore = Math.min(100,
-            (orVal > 0    ? Math.min(25, 10 + (orVal/total)*150)    : 0) +
-            (immoVal > 0  ? Math.min(25, 10 + (immoVal/total)*50)   : 0) +
-            (peaVal > 0   ? Math.min(25, 10 + (peaVal/total)*150)   : 0) +
-            (ctVal > 0    ? Math.min(25, 10 + (ctVal/total)*150)    : 0)
+          // ── 1. Diversification : présence × 25 pts – pénalité si 1 classe > 65 % ──
+          const bvcTotal = peaVal + ctVal;
+          const defVal   = liqV + carnetV;                  // actifs défensifs (liquid + carnet)
+          const classes4 = [orVal, immoVal, bvcTotal, defVal];
+          const nClasses = classes4.filter(v => v > 0).length;
+          const presence = nClasses * 25;
+          const maxCR    = total > 0 ? Math.max(...classes4.map(v => v / total)) : 0;
+          const concentP = maxCR > 0.65 ? ((maxCR - 0.65) / 0.35) * 45 : 0;
+          const divScore = Math.max(0, Math.min(100, presence - concentP));
+
+          // ── 2. Liquidité optimale : [10 %–20 %] = 100, pénalité hors plage ──
+          const liqRatio = total > 0 ? liqV / total : 0;
+          let liqScore;
+          if (liqRatio >= 0.10 && liqRatio <= 0.20)  liqScore = 100;
+          else if (liqRatio < 0.10)                   liqScore = (liqRatio / 0.10) * 100;
+          else                                         liqScore = Math.max(0, 100 - (liqRatio - 0.20) / 0.20 * 100);
+
+          // ── 3. Épargne de précaution : mois couverts (cible 3–6 mois) ──
+          const threeMAgo  = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          const recentDeps = (data.operations || []).filter(op =>
+            op.type === 'depense' && new Date(op.date) >= threeMAgo
           );
-          // Épargne réglementée : cible 10% du patrimoine en carnet
-          const carnRatio  = total > 0 ? carnetV / total : 0;
-          const carnScore  = Math.min(100, carnRatio >= 0.10 ? 100 : (carnRatio / 0.10) * 100);
-          // Investissements BVC : cible 15% en PEA+CT
-          const bvcRatio   = total > 0 ? (peaVal + ctVal) / total : 0;
-          const bvcScore   = Math.min(100, bvcRatio >= 0.15 ? 100 : (bvcRatio / 0.15) * 100);
-          // Liquidité optimale : cible 10-20%, pénalité symétrique
-          const liqRatio   = total > 0 ? liqV / total : 0;
-          const liqTarget  = 0.15;
-          const liqScore   = Math.min(100, Math.max(0, 100 - Math.abs(liqRatio - liqTarget) / liqTarget * 100));
+          const avgMonDep   = recentDeps.length > 0
+            ? recentDeps.reduce((s, op) => s + Math.abs(op.montant || 0), 0) / 3
+            : 0;
+          const moisCouv    = avgMonDep > 0 ? defVal / avgMonDep : null;
+          const carnRatio   = total > 0 ? carnetV / total : 0;
+          let epargneScore;
+          if (moisCouv !== null) {
+            if (moisCouv >= 6)      epargneScore = 100;
+            else if (moisCouv >= 3) epargneScore = 70 + ((moisCouv - 3) / 3) * 30;
+            else                    epargneScore = Math.max(0, (moisCouv / 3) * 70);
+          } else {
+            epargneScore = Math.min(100, carnRatio >= 0.10 ? 100 : (carnRatio / 0.10) * 100);
+          }
+
+          // ── 4. Investissements BVC — PEA + CT, cible 15 % ──
+          const bvcRatio = total > 0 ? bvcTotal / total : 0;
+          const bvcScore = Math.min(100, bvcRatio >= 0.15 ? 100 : (bvcRatio / 0.15) * 100);
+
+          // ── 5. Rendement passif : (intérêts + loyers + dividendes) / total, cible ≥ 3 % ──
+          const interets   = (data.carnet || []).reduce((s, c) => s + (c.solde || 0) * ((c.taux || 0) / 100), 0);
+          const loyers     = (data.revenus_recurrents || [])
+            .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+            .reduce((s, r) => s + (r.montant || 0) * 12, 0);
+          const dividendes = (data.operations || [])
+            .filter(op => op.type === 'revenu' && op.categorie === 'dividende' && new Date(op.date).getFullYear() === now.getFullYear())
+            .reduce((s, op) => s + Math.abs(op.montant || 0), 0);
+          const revPassif  = interets + loyers + dividendes;
+          const rendPct    = total > 0 ? (revPassif / total) * 100 : 0;
+          let rendScore;
+          if (rendPct >= 5)      rendScore = 100;
+          else if (rendPct >= 3) rendScore = 75 + ((rendPct - 3) / 2) * 25;
+          else                   rendScore = (rendPct / 3) * 75;
+
+          // ── 6. Équilibre budgétaire : solde du mois précédent ──
+          const lastMS = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const thisMS = new Date(now.getFullYear(), now.getMonth(), 1);
+          const opsLM  = (data.operations || []).filter(op => {
+            const d = new Date(op.date);
+            return d >= lastMS && d < thisMS;
+          });
+          let budgetScore = 50; // neutre si pas de données
+          if (opsLM.length > 0) {
+            const revM = opsLM.filter(op => op.type === 'revenu').reduce((s, op)  => s + Math.abs(op.montant || 0), 0);
+            const depM = opsLM.filter(op => op.type === 'depense').reduce((s, op) => s + Math.abs(op.montant || 0), 0);
+            if (depM > 0) {
+              const sR = (revM - depM) / depM;
+              if (sR >= 0.20)   budgetScore = 100;
+              else if (sR >= 0) budgetScore = 50 + (sR / 0.20) * 50;
+              else              budgetScore = Math.max(0, 50 + (sR / 0.30) * 50);
+            } else if (revM > 0) budgetScore = 100;
+          }
+          const budgetHint = opsLM.length > 0
+            ? (budgetScore >= 75 ? 'Excédentaire ✓' : budgetScore >= 50 ? 'Équilibré' : 'Déficitaire ⚠')
+            : 'Données insuffisantes';
+
+          // ── Score global pondéré ──
+          // Div 25 % · Liq 20 % · Épargne 20 % · BVC 15 % · Rendement 15 % · Budget 5 %
+          const globalScore = Math.round(
+            divScore     * 0.25 +
+            liqScore     * 0.20 +
+            epargneScore * 0.20 +
+            bvcScore     * 0.15 +
+            rendScore    * 0.15 +
+            budgetScore  * 0.05
+          );
+          const scoreColor = globalScore >= 80 ? C.gpos : globalScore >= 65 ? C.pri : globalScore >= 50 ? C.gold : C.rneg;
+          const scoreLabel = globalScore >= 80 ? 'Excellent' : globalScore >= 65 ? 'Très bien' : globalScore >= 50 ? 'Passable' : 'À améliorer';
 
           const scores = [
-            { label:'Diversification',     pct: divScore,  col: C.pri,  hint: `${[orVal>0?'Or':null,immoVal>0?'Immo':null,peaVal>0?'PEA':null,ctVal>0?'CT':null].filter(Boolean).join(', ')||'Aucune classe'}` },
-            { label:'Épargne réglementée', pct: carnScore, col: C.teal, hint: `${(carnRatio*100).toFixed(1)}% / objectif 10%` },
-            { label:'Investissements BVC', pct: bvcScore,  col: C.navy, hint: `${(bvcRatio*100).toFixed(1)}% / objectif 15%` },
-            { label:'Liquidité optimale',  pct: liqScore,  col: C.gpos, hint: `${(liqRatio*100).toFixed(1)}% / cible 10-20%` },
+            { label:'Diversification',      pct: divScore,     col: C.pri,     hint: `${nClasses}/4 classes${maxCR > 0.65 ? ` · ⚠ conc. ${(maxCR*100).toFixed(0)}%` : ''}` },
+            { label:'Liquidité optimale',    pct: liqScore,     col: C.gpos,    hint: `${(liqRatio*100).toFixed(1)}% / cible 10–20%` },
+            { label:'Épargne de précaution', pct: epargneScore, col: C.teal,    hint: moisCouv !== null ? `${moisCouv.toFixed(1)} mois couverts (cible 3–6)` : `${(carnRatio*100).toFixed(1)}% patrimoine` },
+            { label:'Investissements BVC',   pct: bvcScore,     col: C.navy,    hint: `${(bvcRatio*100).toFixed(1)}% / objectif 15%` },
+            { label:'Rendement passif',      pct: rendScore,    col: '#8B4BD4', hint: `${rendPct.toFixed(2)}% / an (cible ≥ 3%)` },
+            { label:'Équilibre budgétaire',  pct: budgetScore,  col: C.acc,     hint: budgetHint },
           ];
-          const globalScore = Math.round(scores.reduce((s, x) => s + x.pct, 0) / scores.length);
-          const scoreColor  = globalScore >= 75 ? C.gpos : globalScore >= 50 ? C.gold : C.rneg;
-          const scoreLabel  = globalScore >= 75 ? 'Excellent' : globalScore >= 50 ? 'Passable' : 'À améliorer';
 
           return (
             <Card style={{ marginBottom:14 }}>
