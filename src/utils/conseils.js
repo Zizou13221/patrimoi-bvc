@@ -180,18 +180,6 @@ export function generateConseils(data) {
     });
   }
 
-  // 2f. Taux carnet inférieur au taux BAM
-  const carnetsSousTaux = (data.carnet || []).filter(c => c.solde > 0 && c.taux > 0 && c.taux < BAM_TAUX);
-  if (carnetsSousTaux.length > 0) {
-    const nomsBanques = carnetsSousTaux.map(c => c.banque || 'Carnet').join(', ');
-    conseils.push({
-      id: 'carnet_taux', priority: 2, couleur: C.teal, icon: '✦',
-      titre: `Taux carnet inférieur au taux de référence BAM`,
-      corps: `${nomsBanques} affichent un taux inférieur à ${BAM_TAUX}% (taux directeur BAM 2026). À titre indicatif, il peut être utile de vérifier auprès de votre établissement si un taux plus favorable est disponible. Cette information est fournie à des fins éducatives uniquement.`,
-      action: 'Voir mes carnets', nav: 'actifs', sub: 'carnet',
-    });
-  }
-
   // 2g. Immobilier non rentabilisé (biens sans loyer lié, immo > 40%)
   if (immoRatio > 0.40) {
     const biensNonLoues = (data.immobilier || []).filter(b => {
