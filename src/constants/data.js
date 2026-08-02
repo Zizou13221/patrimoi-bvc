@@ -90,5 +90,16 @@ export const INIT = {
   lastUpdate: '',
   operations:          [],  // Budget : { id, date, montant, type, categorie, description }
   budgetCibles:        {},  // Budget cibles par catégorie : { alimentation: 3000, transport: 500, ... }
-  revenus_recurrents:  [],  // Revenus auto : { id, label, montant, jour, actif, dernierAjout }
+  revenus_recurrents:  [],  // Revenus auto : { id, label, type, montant, jour, actif, bienId, bienNom, dernierAjout }
+  // C1 — Versements cumulés PEA (pour contrôle du plafond 600 000 DH)
+  // Demo : ATW 80×124.50 + BCP 100×290 + ATL 60×156 + IAM 60×140 + CIH 45×320 = 71 120 DH
+  versementsCumulesPEA: 71120,
+  // C2 — Date d'ouverture du plan PEA (null = non renseignée)
+  dateOuverturePEA: null,
+  // C4 — Crédits & Dettes : { id, nom, type, preteur, montantInitial, soldeRestant, tauxAnnuel, mensualite, dateDebut }
+  dettes: [],
+  // C3 — Cessions réalisées : { id, date, type, nom, montantCession, coutRevient, plRealise }
+  cessions: [],
+  // C14 — Conseils ignorés : { [id]: true }
+  conseils_dismissed: {},
 };

@@ -9,7 +9,8 @@ import { usePatrimoineStore } from '../store/patrimoineStore';
 import { trackScoreSanteViewed } from '../utils/analytics';
 
 const PageConseils = React.memo(function PageConseils({ onNav }) {
-  const data                = usePatrimoineStore(s => s.data);
+  const data            = usePatrimoineStore(s => s.data);
+  const dismissConseil  = usePatrimoineStore(s => s.dismissConseil);
   // generateConseils retourne { conseils, total } — un seul useMemo
   const { conseils, total } = useMemo(() => generateConseils(data), [data]);
 
@@ -79,8 +80,21 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
                     </View>
                     <Text style={{ fontWeight:'700', fontSize:13, color:C.dark, flex:1 }} numberOfLines={2}>{c.titre}</Text>
                   </View>
-                  <View style={{ backgroundColor:c.couleur+'22', borderRadius:6, paddingHorizontal:7, paddingVertical:2, flexShrink:0 }}>
-                    <Text style={{ fontSize:9, fontWeight:'700', color:c.couleur }} numberOfLines={1}>{priorityLabel(c.priority)}</Text>
+                  <View style={{ flexDirection:'row', gap:4, alignItems:'center' }}>
+                    <View style={{ backgroundColor:c.couleur+'22', borderRadius:6, paddingHorizontal:7, paddingVertical:2, flexShrink:0 }}>
+                      <Text style={{ fontSize:9, fontWeight:'700', color:c.couleur }} numberOfLines={1}>{priorityLabel(c.priority)}</Text>
+                    </View>
+                    {/* C14 — Bouton ignorer */}
+                    <TouchableOpacity
+                      onPress={() => Alert.alert('Ignorer ce conseil ?', 'Il ne sera plus affiché. Vous pouvez le réactiver en réinitialisant vos conseils dans les paramètres.', [
+                        { text:'Annuler', style:'cancel' },
+                        { text:'Ignorer', style:'destructive', onPress:() => dismissConseil(c.id) },
+                      ])}
+                      style={{ padding:4 }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize:14, color:C.g3 }}>✕</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
                 <Text style={{ fontSize:12, color:C.dark, lineHeight:18, marginBottom:10 }}>{c.corps}</Text>

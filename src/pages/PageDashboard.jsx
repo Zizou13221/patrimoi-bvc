@@ -4,6 +4,7 @@ import { C } from '../constants/colors';
 import {
   calcLiquide, calcBanque, calcCarnet, calcPEA, calcPEACout,
   calcCT, calcCTCout, calcOr, calcImmo, calcTransport, totalCout,
+  calcDettes,
 } from '../utils/calc';
 import { fmt, pctDiff } from '../utils/fmt';
 import { Card, IconBox, BarH, SparklineInteractive, DonutSimple } from '../components/shared';
@@ -37,6 +38,7 @@ const PageDashboard = React.memo(function PageDashboard({
   const ctCout  = useMemo(() => calcCTCout(data.ct),          [data.ct]);
   const orVal   = useMemo(() => calcOr(data.or, data.prixOr), [data.or, data.prixOr]);
 
+  const detteTotal = useMemo(() => calcDettes(data.dettes), [data.dettes]);
   const cats = useMemo(() => [
     { id:'liquide',    label:'Argent Liquide',       val:calcLiquide(data.liquidites), col:C.gpos,    abbr:'LIQ', plPct:null },
     { id:'banque',     label:'Argent en Banque',      val:calcBanque(data.banque),       col:C.navy,    abbr:'BNQ', plPct:null },
@@ -49,22 +51,33 @@ const PageDashboard = React.memo(function PageDashboard({
   ].sort((a, b) => b.val - a.val), [data, peaVal, peaCout, ctVal, ctCout, orVal]);
 
   const total    = useMemo(() => cats.reduce((s, c) => s + c.val, 0), [cats]);
+  const totalNet = useMemo(() => total - detteTotal, [total, detteTotal]);
   const cost     = useMemo(() => totalCout(data), [data]);
   const pl       = total - cost;
   const plPct    = cost > 0 ? ((pl / cost) * 100) : 0;
   const activeCats = cats.filter(c => c.val > 0).length;
 
-  // ── Auto-snapshot journalier (PatriMoi+ uniquement) ──────
-  // Compte gratuit : sync patrimoine JSONB de base ✓
-  // PatriMoi+      : + historique snapshots (graphique évolution) ✓
+  // ── C5 — Auto-snapshot journalier (gratuit 35j, PatriMoi+ illimité) ──────
+  // Compte gratuit : snapshots 35j (delta mensuel + filtres 1S/1M) ✓
+  // PatriMoi+      : rétention illimitée, filtres 3M/6M/1A/MAX, export PDF ✓
   useEffect(() => {
-    if (demoMode || total <= 0 || !isPremium) return;
+    if (demoMode || total <= 0) return;
     const today = new Date().toISOString().slice(0, 10);
     const alreadyToday = history?.some(h => h.date === today);
     if (!alreadyToday) {
-      setHistory(h => upsertSnapshot(h || [], today, total));
+      setHistory(h => {
+        const updated = upsertSnapshot(h || [], today, total);
+        // C5 — Rétention 35j pour les comptes gratuits
+        if (!isPremium) {
+          const cutoff = new Date();
+          cutoff.setDate(cutoff.getDate() - 35);
+          const cutoffStr = cutoff.toISOString().slice(0, 10);
+          return updated.filter(s => s.date >= cutoffStr);
+        }
+        return updated;
+      });
     }
-  }, [total, demoMode, isPremium]); // eslint-disable-line
+  }, [total, demoMode]); // eslint-disable-line
 
   // ── Delta mensuel (variation depuis début du mois) ────────
   const monthDelta = useMemo(() => {
@@ -83,7 +96,7 @@ const PageDashboard = React.memo(function PageDashboard({
     if (total <= 0) return null;
     const interetsCarnet  = (data.carnet || []).reduce((s, c) => s + ((c.solde || 0) * (c.taux || 0) / 100), 0);
     const loyersAnnuels   = (data.revenus_recurrents || [])
-      .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+      .filter(r => r.actif !== false && r.type === 'Loyer recu')
       .reduce((s, r) => s + (r.montant || 0) * 12, 0);
     const annee = new Date().getFullYear();
     const dividendesAnnuels = (data.operations || [])
@@ -268,6 +281,13 @@ const PageDashboard = React.memo(function PageDashboard({
           {discret ? '•••• DH' : fmt(total)}
         </Text>
 
+        {/* C4 — Patrimoine net (si dettes > 0) */}
+        {detteTotal > 0 && !discret && (
+          <Text style={{ color:'rgba(255,180,180,0.9)', fontSize:12, marginTop:2 }}>
+            Net après dettes : {fmt(totalNet)}
+          </Text>
+        )}
+
         {/* P&L global */}
         {cost > 0 && !discret && (
           <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginTop:4 }}>
@@ -317,16 +337,32 @@ const PageDashboard = React.memo(function PageDashboard({
           )}
         </View>
 
-        {/* Filtres période */}
+        {/* C17 — Filtres période (3M/6M/1A/MAX grisés pour compte gratuit) */}
         <View style={{ flexDirection:'row', backgroundColor:'rgba(0,0,0,0.15)', borderRadius:8, marginTop:8, padding:2 }}>
-          {['1S','1M','3M','6M','1A','MAX'].map(p => (
-            <TouchableOpacity key={p} onPress={() => setPeriod(p)}
-              style={{ flex:1, paddingVertical:5, alignItems:'center', borderRadius:6, backgroundColor:period===p?C.pri:'transparent' }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize:11, fontWeight:period===p?'700':'400', color:period===p?C.white:'rgba(255,255,255,0.7)' }}>{p}</Text>
-            </TouchableOpacity>
-          ))}
+          {['1S','1M','3M','6M','1A','MAX'].map(p => {
+            const premiumOnly = ['3M','6M','1A','MAX'].includes(p);
+            const locked = premiumOnly && !isPremium;
+            return (
+              <TouchableOpacity key={p}
+                onPress={() => {
+                  if (locked) {
+                    Alert.alert('PatriMoi+', 'Les filtres 3M / 6M / 1A / MAX nécessitent PatriMoi+.\nLes abonnés bénéficient d\'un historique illimité.', [{ text: 'OK' }]);
+                    return;
+                  }
+                  setPeriod(p);
+                }}
+                style={{ flex:1, paddingVertical:5, alignItems:'center', borderRadius:6,
+                  backgroundColor: period===p ? C.pri : 'transparent',
+                  opacity: locked ? 0.4 : 1,
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize:11, fontWeight:period===p?'700':'400', color:period===p?C.white:'rgba(255,255,255,0.7)' }}>
+                  {p}{locked ? ' 🔒' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 

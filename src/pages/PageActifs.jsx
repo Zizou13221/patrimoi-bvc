@@ -5,6 +5,7 @@ import { C } from '../constants/colors';
 import {
   calcLiquide, calcBanque, calcCarnet, calcPEA, calcPEACout,
   calcCT, calcCTCout, calcOr, calcImmo, calcTransport,
+  calcDettes,
   valImmo, valTransport, valOr,
 } from '../utils/calc';
 import { fmt, fmtN, fmtCours, pctDiff } from '../utils/fmt';
@@ -130,13 +131,19 @@ const BVC_LIST = [
 ];
 
 // ─── Boutons Modifier / Supprimer / Détails ─────────────────
-function ActionBtns({ onEdit, onDelete, onDetail }) {
+function ActionBtns({ onEdit, onDelete, onDetail, onVendre }) {
   return (
-    <View style={{ flexDirection:'row', gap:8, marginTop:10, justifyContent:'flex-end' }}>
+    <View style={{ flexDirection:'row', gap:8, marginTop:10, justifyContent:'flex-end', flexWrap:'wrap' }}>
       {onDetail && (
         <TouchableOpacity onPress={onDetail}
           style={{ paddingHorizontal:12, paddingVertical:5, borderRadius:7, backgroundColor:'#EEF0FF' }}>
           <Text style={{ fontSize:11, color:'#4040C0', fontWeight:'600' }}>◎ Détails</Text>
+        </TouchableOpacity>
+      )}
+      {onVendre && (
+        <TouchableOpacity onPress={onVendre}
+          style={{ paddingHorizontal:12, paddingVertical:5, borderRadius:7, backgroundColor:'#FFF8E8' }}>
+          <Text style={{ fontSize:11, color:'#B85C00', fontWeight:'600' }}>⇥ Vendre</Text>
         </TouchableOpacity>
       )}
       <TouchableOpacity onPress={onEdit}
@@ -149,6 +156,58 @@ function ActionBtns({ onEdit, onDelete, onDetail }) {
       </TouchableOpacity>
     </View>
   );
+}
+
+// ─── Helper cession atomique ────────────────────────────────
+// Applique une cession et retourne le nouvel état data
+function applyCession({ data, type, nom, idx, qtyVendue, prixUnit, dateStr, dest, pruUnit, listeKey }) {
+  const montantCession = Math.round(prixUnit * qtyVendue * 100) / 100;
+  const coutRevient    = Math.round(pruUnit  * qtyVendue * 100) / 100;
+  const plRealise      = Math.round((prixUnit - pruUnit) * qtyVendue * 100) / 100;
+  const cessionEntry   = {
+    id: Date.now(), date: dateStr || new Date().toISOString().slice(0, 10),
+    type, nom, qtyVendue, prixUnit, montantCession, coutRevient, plRealise,
+  };
+  const opEntry = {
+    id: `op_${Date.now()}`, date: dateStr || new Date().toISOString().slice(0, 10),
+    montant: montantCession, type: 'revenu', categorie: 'cession',
+    description: `Cession ${nom} (${type})`,
+  };
+  let newData = { ...data };
+  // 1. Mise à jour de la liste d'actifs
+  if (listeKey) {
+    const liste = [...(data[listeKey] || [])];
+    const item  = liste[idx];
+    const newQty = (item.qty || item.quantite || 1) - qtyVendue;
+    if (newQty <= 0) {
+      liste.splice(idx, 1);
+    } else if ('qty' in item) {
+      liste[idx] = { ...item, qty: newQty };
+    } else {
+      liste[idx] = { ...item, quantite: newQty };
+    }
+    newData = { ...newData, [listeKey]: liste };
+  }
+  // 2. Créditer l'actif destination
+  if (dest === 'liquidites') {
+    newData = { ...newData, liquidites: { ...newData.liquidites, dh: (newData.liquidites?.dh || 0) + montantCession } };
+  } else {
+    // Trouver le premier compte bancaire ou en créer un crédit
+    const banque = [...(newData.banque || [])];
+    if (banque.length > 0) {
+      banque[0] = { ...banque[0], solde: (banque[0].solde || 0) + montantCession };
+      newData = { ...newData, banque };
+    } else {
+      newData = { ...newData, liquidites: { ...newData.liquidites, dh: (newData.liquidites?.dh || 0) + montantCession } };
+    }
+  }
+  // 3. Registre cessions + opération budget
+  newData = {
+    ...newData,
+    cessions:   [...(newData.cessions || []), cessionEntry],
+    operations: [...(newData.operations || []), opEntry],
+  };
+  return newData;
 }
 
 // ─── Options devises (AN_008) ───────────────────────────────
@@ -195,6 +254,7 @@ function SubLiquide({ data, setData, onBack }) {
   const [taux,    setTaux]      = useState('');
   const [devisesUpdatedAt, setDevisesUpdatedAt] = useState(null);
   const [devisesLoading,   setDevisesLoading]   = useState(false);
+  const [tauxLoading,      setTauxLoading]      = useState(false);
   const COLS = ['#005090','#003280','#640064','#006440','#804000'];
 
   // ── Auto-fetch taux BAM au montage ──────────────────────────
@@ -218,6 +278,17 @@ function SubLiquide({ data, setData, onBack }) {
       setDevisesUpdatedAt(new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }));
     });
   }, []);
+
+  // C13 — Auto-fetch taux BAM quand l'utilisateur choisit une devise dans le formulaire
+  useEffect(() => {
+    if (!devCode || editIdx >= 0) return; // pas en mode édition
+    setTauxLoading(true);
+    fetchDevises([devCode]).then(res => {
+      setTauxLoading(false);
+      const t = res?.[devCode];
+      if (t) setTaux(String(parseFloat(t.toFixed(4))));
+    }).catch(() => setTauxLoading(false));
+  }, [devCode]); // eslint-disable-line
 
   function startEdit(i) {
     const dv = liq.devises[i];
@@ -351,8 +422,14 @@ function SubLiquide({ data, setData, onBack }) {
               onChange={v => { setDevCode(v); if (!nom || nom === DEVISE_NOM[devCode]) setNom(DEVISE_NOM[v] || v); }}
               options={DEVISE_OPTIONS}
             />
-            <Input label="Quantite"   value={qty}  onChangeText={setQty}  placeholder="1000" keyboardType="numeric"/>
-            <Input label="Cours (DH)" value={taux} onChangeText={setTaux} placeholder="10.22" keyboardType="numeric" unit="DH"/>
+            <Input label="Quantité"   value={qty}  onChangeText={setQty}  placeholder="1000" keyboardType="numeric"/>
+            {/* C13 — taux auto-rempli via BAM */}
+            <Input
+              label={tauxLoading ? 'Cours (DH) — chargement...' : 'Cours (DH)'}
+              value={taux} onChangeText={setTaux}
+              placeholder={tauxLoading ? '...' : '10.22'}
+              keyboardType="numeric" unit="DH"
+            />
             <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
               <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
               <BtnPri onPress={saveDevise} disabled={!devCode || !isNum(qty) || !isNum(taux)} style={{ flex:1 }}>
@@ -426,6 +503,14 @@ function SubBanque({ data, setData, onBack }) {
           <Text style={{ color:'rgba(180,190,230,0.75)', fontSize:11 }}>{data.banque.length} compte(s)</Text>
         </View>
 
+        {/* C15 — Empty state */}
+        {data.banque.length === 0 && !showForm && (
+          <View style={{ padding:24, alignItems:'center', gap:6 }}>
+            <Text style={{ fontSize:28 }}>🏦</Text>
+            <Text style={{ fontSize:14, fontWeight:'700', color:C.dark }}>Aucun compte bancaire</Text>
+            <Text style={{ fontSize:12, color:C.g3, textAlign:'center' }}>Ajoutez vos comptes courants, livrets ou comptes d'épargne.</Text>
+          </View>
+        )}
         {data.banque.map((b, i) => (
           <Card key={i}>
             <View style={{ flexDirection:'row', gap:10, alignItems:'center' }}>
@@ -474,22 +559,30 @@ function SubCarnet({ data, setData, onBack }) {
   const [montant, setMontant] = useState('500');
   const [freq,    setFreq]    = useState('Mensuel');
 
-  // Projection gains + versements
-  const proj = (n) => data.carnet.reduce((s, c) => {
-    const r = c.taux / 100;
-    const interets = c.solde * (Math.pow(1 + r, n) - 1);
-    // Gains des versements périodiques
-    const rm = c.taux / 1200;
+  // C12 — Projection améliorée : retourne { soldeInitial, versCumul, interets, total }
+  const proj = (n) => data.carnet.reduce((acc, c) => {
+    const rm = c.taux / 1200;  // taux mensuel
     const nM = n * 12;
+    const solde0 = c.solde || 0;
+    // Capitalisation mensuelle sur le capital initial
+    const totalCapital = solde0 * Math.pow(1 + rm, nM);
+    const interetsCapital = totalCapital - solde0;
+    // Versements périodiques
     const freqMult = c.rappel?.freq === 'Mensuel' ? 1 : c.rappel?.freq === 'Trimestriel' ? 3 : 12;
     const nPer = Math.floor(nM / freqMult);
     const rPer = Math.pow(1 + rm, freqMult) - 1;
     const pmt = c.rappel?.montant || 0;
+    const cumVers = pmt * nPer;
     const gainsVers = rPer > 0 && nPer > 0
-      ? pmt * ((Math.pow(1 + rPer, nPer) - 1) / rPer)
-      : pmt * nPer;
-    return s + interets + gainsVers;
-  }, 0);
+      ? pmt * ((Math.pow(1 + rPer, nPer) - 1) / rPer) - cumVers
+      : 0;
+    return {
+      soldeInitial: acc.soldeInitial + solde0,
+      versCumul:    acc.versCumul + cumVers,
+      interets:     acc.interets + interetsCapital + gainsVers,
+      total:        acc.total + totalCapital + cumVers + gainsVers,
+    };
+  }, { soldeInitial: 0, versCumul: 0, interets: 0, total: 0 });
 
   function startEdit(i) {
     const c = data.carnet[i];
@@ -533,7 +626,7 @@ function SubCarnet({ data, setData, onBack }) {
 
   return (
     <View style={{ flex:1 }}>
-      <TopBar title="Compte sur Carnet" subtitle="Epargne reglementee" onBack={onBack}/>
+      <TopBar title="Compte sur Carnet" subtitle="Épargne réglementée" onBack={onBack}/>
       <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:12 }}>
         <View style={{ backgroundColor:C.teal, borderRadius:14, padding:14, alignItems:'center', marginBottom:12 }}>
           <Text style={{ color:'rgba(200,240,240,0.9)', fontSize:12 }}>Solde total</Text>
@@ -552,7 +645,7 @@ function SubCarnet({ data, setData, onBack }) {
               <Text style={{ fontWeight:'700', fontSize:14 }}>{fmt(c.solde)}</Text>
             </View>
             <View style={{ backgroundColor:C.tealL, borderRadius:8, padding:10 }}>
-              <Text style={{ fontSize:11, fontWeight:'700', color:C.teal, marginBottom:3 }}>Rappel d'epargne</Text>
+              <Text style={{ fontSize:11, fontWeight:'700', color:C.teal, marginBottom:3 }}>Rappel d'épargne</Text>
               <Text style={{ fontSize:11, color:C.dark }}>Investir {fmt(c.rappel?.montant || 0)} — {c.rappel?.freq || 'Mensuel'}</Text>
               <Text style={{ fontSize:10, color:C.acc, marginTop:2 }}>Prochain : {c.rappel?.prochaine || '—'}</Text>
             </View>
@@ -560,16 +653,26 @@ function SubCarnet({ data, setData, onBack }) {
           </Card>
         ))}
 
+        {/* C12 — Projection améliorée */}
         <Card style={{ backgroundColor:C.g1 }}>
-          <Text style={{ fontWeight:'700', fontSize:12, marginBottom:10 }}>Projection (interets + versements)</Text>
-          <View style={{ flexDirection:'row' }}>
-            {[[1,'1 an'],[3,'3 ans'],[5,'5 ans']].map(([n, label]) => (
-              <View key={n} style={{ flex:1, alignItems:'center' }}>
-                <Text style={{ fontSize:11, color:C.g3 }}>{label}</Text>
-                <Text style={{ fontSize:14, fontWeight:'700', color:C.gpos, marginTop:3 }}>+{fmt(proj(n))}</Text>
-              </View>
-            ))}
+          <Text style={{ fontWeight:'700', fontSize:12, marginBottom:10 }}>Projection (capitalisation mensuelle)</Text>
+          <View style={{ flexDirection:'row', marginBottom:8 }}>
+            {[[1,'1 an'],[3,'3 ans'],[5,'5 ans']].map(([n, label]) => {
+              const p = proj(n);
+              return (
+                <View key={n} style={{ flex:1, alignItems:'center' }}>
+                  <Text style={{ fontSize:11, color:C.g3 }}>{label}</Text>
+                  <Text style={{ fontSize:14, fontWeight:'700', color:C.pri, marginTop:3 }}>{fmt(p.total)}</Text>
+                  <Text style={{ fontSize:10, color:C.teal, marginTop:1 }}>+{fmt(p.interets)} int.</Text>
+                </View>
+              );
+            })}
           </View>
+          {(() => { const p5 = proj(5); return p5.versCumul > 0 ? (
+            <Text style={{ fontSize:10, color:C.g3, textAlign:'center' }}>
+              dont {fmt(p5.versCumul)} DH de versements sur 5 ans
+            </Text>
+          ) : null; })()}
         </Card>
 
         {showForm ? (
@@ -581,7 +684,7 @@ function SubCarnet({ data, setData, onBack }) {
             <Input label="Solde (DH)"            value={solde}   onChangeText={setSolde}   keyboardType="numeric" placeholder="30000"/>
             <Input label="Taux annuel (%)"       value={taux}    onChangeText={setTaux}    keyboardType="numeric" placeholder="3"/>
             <Input label="Montant rappel (DH)"   value={montant} onChangeText={setMontant} keyboardType="numeric" placeholder="500"/>
-            <SelectInput label="Frequence" value={freq} options={['Mensuel','Trimestriel','Annuel']} onChange={setFreq}/>
+            <SelectInput label="Fréquence" value={freq} options={['Mensuel','Trimestriel','Annuel']} onChange={setFreq}/>
             <View style={{ flexDirection:'row', gap:8, marginTop:6 }}>
               <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
               <BtnPri onPress={saveCarnet} disabled={!banque || !isNum(solde)} style={{ flex:1, backgroundColor:C.teal }}>
@@ -590,7 +693,7 @@ function SubCarnet({ data, setData, onBack }) {
             </View>
           </Card>
         ) : (
-          <BtnPri onPress={() => setShowAdd(true)} style={{ backgroundColor:C.teal }}>+ Nouveau carnet d'epargne</BtnPri>
+          <BtnPri onPress={() => setShowAdd(true)} style={{ backgroundColor:C.teal }}>+ Nouveau carnet d'épargne</BtnPri>
         )}
       </ScrollView>
     </View>
@@ -685,6 +788,12 @@ function SubPEA({ data, setData, onBack }) {
   const [dateAchat,     setDateAchat]     = useState('');
   const [detailIdx,     setDetailIdx]     = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  // C3 — Formulaire de vente
+  const [venteIdx,     setVenteIdx]     = useState(null);
+  const [venteQty,     setVenteQty]     = useState('');
+  const [ventePrix,    setVentePrix]    = useState('');
+  const [venteDate,    setVenteDate]    = useState('');
+  const [venteDest,    setVenteDest]    = useState('banque');
 
   // Segments pour les camemberts (couleurs contrastées communes)
   const costSegs = useMemo(() =>
@@ -738,22 +847,31 @@ function SubPEA({ data, setData, onBack }) {
       setData(d => ({ ...d, pea: d.pea.map((x, i) => i === editIdx
         ? { ticker:tck, nom:rest.join(' '), pru:newPru, cours:newCours, qty:newQty, dateAchat: dateAchat || null }
         : x) }));
+      resetForm();
     } else {
-      setData(d => {
-        const existIdx = d.pea.findIndex(x => x.ticker === tck);
-        if (existIdx >= 0) {
-          // Fusion — PRU pondéré
-          const ex = d.pea[existIdx];
-          const totalQty = ex.qty + newQty;
-          const pruPond  = Math.round((ex.qty * ex.pru + newQty * newPru) / totalQty * 100) / 100;
-          return { ...d, pea: d.pea.map((x, i) => i === existIdx
-            ? { ...x, qty: totalQty, pru: pruPond, cours: newCours, dateAchat: dateAchat || x.dateAchat }
-            : x) };
-        }
-        return { ...d, pea: [...d.pea, { ticker:tck, nom:rest.join(' '), pru:newPru, cours:newCours, qty:newQty, dateAchat: dateAchat || null }] };
-      });
+      // C7 — Vérifier si fusion (ticker déjà dans le PEA)
+      const existPos = pea.find(x => x.ticker === tck);
+      if (existPos) {
+        const totalQty = existPos.qty + newQty;
+        const pruPond  = Math.round((existPos.qty * existPos.pru + newQty * newPru) / totalQty * 100) / 100;
+        Alert.alert(
+          `Fusion ${tck}`,
+          `Ce titre est déjà dans votre PEA.\n\nActuel : ${existPos.qty} titres à ${existPos.pru} DH\nNouvel achat : ${newQty} titres à ${newPru} DH\n\nRésultat : ${totalQty} titres · PRU ${pruPond} DH`,
+          [
+            { text:'Annuler', style:'cancel' },
+            { text:'Fusionner', onPress:() => {
+              setData(d => ({ ...d, pea: d.pea.map(x => x.ticker === tck
+                ? { ...x, qty: totalQty, pru: pruPond, cours: newCours, dateAchat: dateAchat || x.dateAchat }
+                : x) }));
+              resetForm();
+            }},
+          ]
+        );
+      } else {
+        setData(d => ({ ...d, pea: [...d.pea, { ticker:tck, nom:rest.join(' '), pru:newPru, cours:newCours, qty:newQty, dateAchat: dateAchat || null }] }));
+        resetForm();
+      }
     }
-    resetForm();
   }
 
   function deleteTitre(i) {
@@ -763,6 +881,20 @@ function SubPEA({ data, setData, onBack }) {
         setData(d => ({ ...d, pea: d.pea.filter((_, j) => j !== i) }))
       },
     ]);
+  }
+
+  // C3 — Vente PEA
+  function confirmerVentePEA() {
+    if (venteIdx === null) return;
+    const t = pea[venteIdx];
+    const qv = parseInt(venteQty, 10);
+    const pv = parseFloat(ventePrix);
+    if (!qv || qv <= 0 || qv > t.qty || isNaN(pv) || pv <= 0) return;
+    setData(d => applyCession({
+      data:d, type:'PEA', nom:t.ticker, idx:venteIdx, qtyVendue:qv,
+      prixUnit:pv, dateStr:venteDate, dest:venteDest, pruUnit:t.pru, listeKey:'pea',
+    }));
+    setVenteIdx(null); setVenteQty(''); setVentePrix(''); setVenteDate('');
   }
 
   const tickerValid = ticker && ticker !== 'Selectionner...';
@@ -775,15 +907,22 @@ function SubPEA({ data, setData, onBack }) {
         <View style={{ backgroundColor:C.pri, borderRadius:16, padding:16, marginBottom:12 }}>
           <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:12 }}>Valeur du portefeuille</Text>
           <Text style={{ color:C.white, fontWeight:'700', fontSize:26, marginVertical:4 }}>{fmt(total)}</Text>
-          <View style={{ backgroundColor:C.priD, borderRadius:8, paddingHorizontal:10, paddingVertical:5, alignSelf:'flex-start' }}>
-            <Text style={{ color:'#6EE7A0', fontSize:12, fontWeight:'600' }}>
-              P&L : {cout > 0 ? (total >= cout ? '+' : '') + fmt(total - cout) + ' (' + pctDiff(total, cout).toFixed(1) + '%)' : 'N/A'}
-            </Text>
+          <View style={{ flexDirection:'row', gap:8, flexWrap:'wrap' }}>
+            <View style={{ backgroundColor:C.priD, borderRadius:8, paddingHorizontal:10, paddingVertical:5 }}>
+              <Text style={{ color:'#6EE7A0', fontSize:12, fontWeight:'600' }}>
+                P&L : {cout > 0 ? (total >= cout ? '+' : '') + fmt(total - cout) + ' (' + pctDiff(total, cout).toFixed(1) + '%)' : 'N/A'}
+              </Text>
+            </View>
+            <View style={{ backgroundColor:C.priD, borderRadius:8, paddingHorizontal:10, paddingVertical:5 }}>
+              <Text style={{ color:'rgba(255,255,255,0.75)', fontSize:11 }}>
+                Versements : {fmt(data.versementsCumulesPEA ?? cout)} / {fmt(600000)}
+              </Text>
+            </View>
           </View>
         </View>
         <View style={{ backgroundColor:C.accL, borderRadius:10, padding:12, borderLeftWidth:4, borderLeftColor:C.acc, marginBottom:12 }}>
           <Text style={{ fontWeight:'700', fontSize:12, color:C.goldD }}>Avantages du Compte PEA au Maroc</Text>
-          <Text style={{ fontSize:11, color:C.goldD, marginTop:4 }}>Exoneration totale d'impot apres 5 ans — Plafond : 600 000 DH — Titres BVC uniquement</Text>
+          <Text style={{ fontSize:11, color:C.goldD, marginTop:4 }}>Exoneration totale d'impot apres 5 ans — Plafond : 600 000 DH de versements — Titres BVC uniquement</Text>
         </View>
 
         {/* ── Toggle analytiques ── */}
@@ -899,10 +1038,41 @@ function SubPEA({ data, setData, onBack }) {
                   <Text style={{ fontSize:9, color:C.g3, minWidth:34, textAlign:'right' }}>{poids.toFixed(1)}%</Text>
                 </View>
                 <ActionBtns
-                  onEdit={() => startEdit(i)}
+                  onEdit={() => { setVenteIdx(null); startEdit(i); }}
                   onDelete={() => deleteTitre(i)}
                   onDetail={() => setDetailIdx(detailIdx === i ? null : i)}
+                  onVendre={() => { setEditIdx(-1); setShowAdd(false); setVenteIdx(venteIdx === i ? null : i); setVenteQty(String(t.qty)); setVentePrix(String(t.cours)); setVenteDate(''); }}
                 />
+                {/* C3 — Formulaire de vente inline */}
+                {venteIdx === i && (
+                  <View style={{ backgroundColor:'#FFF8E8', borderRadius:10, padding:12, margin:8, borderWidth:1, borderColor:'#E8A030' }}>
+                    <Text style={{ fontWeight:'700', fontSize:12, color:'#B85C00', marginBottom:8 }}>
+                      Céder {t.ticker} — max {t.qty} titre(s)
+                    </Text>
+                    <Input label="Quantité à vendre" value={venteQty} onChangeText={setVenteQty} keyboardType="numeric" placeholder={String(t.qty)}/>
+                    <Input label="Prix de cession (DH/titre)" value={ventePrix} onChangeText={setVentePrix} keyboardType="numeric" placeholder={String(t.cours)}/>
+                    <Input label="Date de cession (optionnel)" value={venteDate} onChangeText={setVenteDate} placeholder="JJ/MM/AAAA"/>
+                    <SelectInput label="Créditer sur" value={venteDest} onChange={setVenteDest} options={['banque','liquidites']}/>
+                    {isNum(venteQty) && isNum(ventePrix) && parseFloat(venteQty) > 0 && parseFloat(ventePrix) > 0 && (
+                      <View style={{ backgroundColor:'rgba(0,0,0,0.05)', borderRadius:6, padding:8, marginBottom:8 }}>
+                        <Text style={{ fontSize:11, color:C.dark }}>
+                          Produit de cession : {fmt(parseFloat(ventePrix) * parseInt(venteQty, 10))}
+                        </Text>
+                        <Text style={{ fontSize:11, color:(parseFloat(ventePrix) - t.pru) >= 0 ? C.gpos : C.rneg }}>
+                          P&L réalisé : {((parseFloat(ventePrix) - t.pru) * parseInt(venteQty, 10)) >= 0 ? '+' : ''}{fmt((parseFloat(ventePrix) - t.pru) * parseInt(venteQty, 10))}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flexDirection:'row', gap:8 }}>
+                      <BtnSec onPress={() => setVenteIdx(null)} style={{ flex:1 }}>Annuler</BtnSec>
+                      <BtnPri
+                        onPress={confirmerVentePEA}
+                        disabled={!isNum(venteQty) || !isNum(ventePrix) || parseInt(venteQty,10) <= 0 || parseInt(venteQty,10) > t.qty || parseFloat(ventePrix) <= 0}
+                        style={{ flex:1, backgroundColor:'#B85C00' }}
+                      >Confirmer la vente</BtnPri>
+                    </View>
+                  </View>
+                )}
                 {/* Panel de détails */}
                 {detailIdx === i && (() => {
                   const valPos  = t.cours * t.qty;
@@ -969,7 +1139,7 @@ function SubPEA({ data, setData, onBack }) {
             <SelectInput label="Action cotee BVC" value={ticker} onChange={handleTickerPEA} options={['Selectionner...'].concat(BVC_LIST)}/>
             <Input label="Prix d'achat unitaire (DH)" value={pru}   onChangeText={setPru}   keyboardType="numeric" placeholder="124.50"/>
             <Input label="Cours actuel (DH)" value={cours} keyboardType="numeric" placeholder="—" editable={false}/>
-            <Input label="Quantite (actions)"         value={qty}   onChangeText={setQty}   keyboardType="numeric" placeholder="80"/>
+            <Input label="Quantité (actions)"         value={qty}   onChangeText={setQty}   keyboardType="numeric" placeholder="80"/>
             <Input label="Date d'achat (optionnel)" value={dateAchat} onChangeText={setDateAchat} placeholder="JJ/MM/AAAA"/>
             <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
               <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
@@ -981,6 +1151,30 @@ function SubPEA({ data, setData, onBack }) {
         ) : (
           <BtnPri onPress={() => setShowAdd(true)} style={{ marginTop:8 }}>+ Ajouter un actif financier</BtnPri>
         )}
+        {/* ── C2 — Date d'ouverture + C1 — Versements cumulés PEA ── */}
+        <Card style={{ marginTop:8, borderWidth:1, borderColor:C.g1 }}>
+          <Text style={{ fontWeight:'700', fontSize:12, color:C.dark, marginBottom:8 }}>Informations du plan PEA</Text>
+          <Input
+            label="Date d'ouverture du plan (JJ/MM/AAAA)"
+            value={data.dateOuverturePEA || ''}
+            onChangeText={v => setData(d => ({ ...d, dateOuverturePEA: v || null }))}
+            placeholder="Ex : 15/03/2020"
+          />
+          <Input
+            label="Versements cumulés (DH)"
+            value={String(data.versementsCumulesPEA ?? '')}
+            onChangeText={v => {
+              const n = parseFloat(v);
+              if (!isNaN(n)) setData(d => ({ ...d, versementsCumulesPEA: Math.round(n) }));
+              else if (v === '') setData(d => ({ ...d, versementsCumulesPEA: 0 }));
+            }}
+            keyboardType="numeric"
+            placeholder="Montant total versé dans le PEA"
+          />
+          <Text style={{ fontSize:10, color:C.g3, marginTop:4 }}>
+            ℹ Le plafond légal de 600 000 DH s'applique aux versements cumulés, pas à la valorisation.
+          </Text>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -999,6 +1193,32 @@ function SubCT({ data, setData, onBack }) {
   const [editIdx,       setEditIdx]       = useState(-1);
   const [detailIdx,     setDetailIdx]     = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  // C3 — Vente CT
+  const [venteIdx,  setVenteIdx]  = useState(null);
+  const [venteQty,  setVenteQty]  = useState('');
+  const [ventePrix, setVentePrix] = useState('');
+  const [venteDate, setVenteDate] = useState('');
+  const [venteDest, setVenteDest] = useState('banque');
+
+  function confirmerVenteCT() {
+    if (venteIdx === null) return;
+    const t = ct.actions[venteIdx];
+    const qv = parseInt(venteQty, 10);
+    const pv = parseFloat(ventePrix);
+    if (!qv || qv <= 0 || qv > t.qty || isNaN(pv) || pv <= 0) return;
+    // C3 — applyCession ne supporte pas ct.actions imbriqué : pré-update ct puis appel sans listeKey
+    setData(d => {
+      const newActions = d.ct.actions.map((a, j) => j !== venteIdx ? a
+        : qv >= a.qty ? null : { ...a, qty: a.qty - qv }
+      ).filter(Boolean);
+      const dataWithCT = { ...d, ct: { ...d.ct, actions: newActions } };
+      return applyCession({
+        data: dataWithCT, type:'CT', nom:t.ticker, idx:null, qtyVendue:qv,
+        prixUnit:pv, dateStr:venteDate, dest:venteDest, pruUnit:t.pru, listeKey:null,
+      });
+    });
+    setVenteIdx(null); setVenteQty(''); setVentePrix(''); setVenteDate('');
+  }
 
   // Segments pour les camemberts CT (même palette contrastée)
   const costSegs = useMemo(() =>
@@ -1269,10 +1489,37 @@ function SubCT({ data, setData, onBack }) {
                       <Text style={{ fontSize:9, color:C.g3, minWidth:34, textAlign:'right' }}>{poids.toFixed(1)}%</Text>
                     </View>
                     <ActionBtns
-                      onEdit={() => startEditAction(i)}
+                      onEdit={() => { setVenteIdx(null); startEditAction(i); }}
                       onDelete={() => deleteAction(i)}
                       onDetail={() => setDetailIdx(detailIdx === i ? null : i)}
+                      onVendre={() => { setEditIdx(-1); setShowAdd(false); setVenteIdx(venteIdx === i ? null : i); setVenteQty(String(t.qty)); setVentePrix(String(t.cours)); setVenteDate(''); }}
                     />
+                    {/* C3 — Formulaire de vente CT inline */}
+                    {venteIdx === i && (
+                      <View style={{ backgroundColor:'#FFF8E8', borderRadius:10, padding:12, margin:8, borderWidth:1, borderColor:'#E8A030' }}>
+                        <Text style={{ fontWeight:'700', fontSize:12, color:'#B85C00', marginBottom:8 }}>
+                          Céder {t.ticker} — max {t.qty} titre(s)
+                        </Text>
+                        <Input label="Quantité à céder" value={venteQty} onChangeText={setVenteQty} keyboardType="numeric" placeholder={String(t.qty)}/>
+                        <Input label="Prix de cession (DH/titre)" value={ventePrix} onChangeText={setVentePrix} keyboardType="numeric" placeholder={String(t.cours)}/>
+                        <Input label="Date (optionnel)" value={venteDate} onChangeText={setVenteDate} placeholder="JJ/MM/AAAA"/>
+                        <SelectInput label="Créditer sur" value={venteDest} onChange={setVenteDest} options={['banque','liquidites']}/>
+                        {isNum(venteQty) && isNum(ventePrix) && parseFloat(venteQty) > 0 && parseFloat(ventePrix) > 0 && (
+                          <View style={{ backgroundColor:'rgba(0,0,0,0.05)', borderRadius:6, padding:8, marginBottom:8 }}>
+                            <Text style={{ fontSize:11, color:C.dark }}>
+                              Montant : {fmt(Math.round(parseFloat(venteQty) * parseFloat(ventePrix)))} DH
+                            </Text>
+                            <Text style={{ fontSize:11, color: parseFloat(ventePrix) >= t.pru ? C.gpos : C.rneg }}>
+                              P&L : {parseFloat(ventePrix) >= t.pru ? '+' : ''}{fmt(Math.round((parseFloat(ventePrix) - t.pru) * parseFloat(venteQty)))} DH
+                            </Text>
+                          </View>
+                        )}
+                        <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
+                          <BtnSec onPress={() => setVenteIdx(null)} style={{ flex:1 }}>Annuler</BtnSec>
+                          <BtnPri onPress={confirmerVenteCT} disabled={!isNum(venteQty) || !isNum(ventePrix) || parseFloat(venteQty) <= 0} style={{ flex:1, backgroundColor:'#E8A030' }}>Confirmer la cession</BtnPri>
+                        </View>
+                      </View>
+                    )}
                     {/* Panel de détails CT */}
                     {detailIdx === i && (() => {
                       const valPos  = t.cours * t.qty;
@@ -1363,7 +1610,7 @@ function SubCT({ data, setData, onBack }) {
               <SelectInput label="Action cotee BVC" value={ticker} options={['Selectionner...'].concat(BVC_LIST)} onChange={handleTickerCT}/>
               <Input label="Prix d'achat unitaire (DH)" value={pru}   onChangeText={setPru}   keyboardType="numeric" placeholder="265.00"/>
               <Input label="Cours actuel (DH)" value={cours} keyboardType="numeric" placeholder="—" editable={false}/>
-              <Input label="Quantite (actions)" value={qty}   onChangeText={setQty}   keyboardType="numeric" placeholder="20"/>
+              <Input label="Quantité (actions)" value={qty}   onChangeText={setQty}   keyboardType="numeric" placeholder="20"/>
               <Input label="Date d'achat (optionnel)" value={dateAchat} onChangeText={setDateAchat} placeholder="JJ/MM/AAAA"/>
               <View style={{ flexDirection:'row', gap:8, marginTop:6 }}>
                 <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
@@ -1448,30 +1695,28 @@ function SubOr({ data, setData, onBack }) {
     ]);
   }
 
+  // C3 — Cession or (complète ou partielle par gramme)
   function vendreOr(i) {
     const o = or[i];
     const valEstim = Math.round(o.quantite * prixOr);
+    const pruUnit  = o.prixAchat / Math.max(o.quantite, 1);
     Alert.alert(
       `Vente — ${o.nom}`,
-      `Valeur estimée au cours actuel :\n${valEstim.toLocaleString('fr-FR')} DH\n\nEnregistrer cette vente dans votre budget ?`,
+      `Quantité : ${o.quantite}g — Valeur estimée : ${valEstim.toLocaleString('fr-FR')} DH\n\nCette opération enregistrera la cession dans votre budget et calculera le P&L réalisé.`,
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer sans enregistrer', style: 'destructive', onPress: () =>
-          setData(d => ({ ...d, or: d.or.filter((_, j) => j !== i) }))
+        { text: `✓ Vente totale → Banque`, onPress: () =>
+          setData(d => applyCession({
+            data:d, type:'Or', nom:o.nom, idx:i, qtyVendue:o.quantite,
+            prixUnit:prixOr, dateStr:new Date().toISOString().slice(0,10),
+            dest:'banque', pruUnit, listeKey:'or',
+          }))
         },
-        { text: `✓ Vendre (+${valEstim.toLocaleString('fr-FR')} DH)`, onPress: () =>
-          setData(d => ({
-            ...d,
-            or: d.or.filter((_, j) => j !== i),
-            operations: [...(d.operations || []), {
-              id: `vente-or-${Date.now()}`,
-              date: new Date().toISOString(),
-              montant: valEstim,
-              type: 'revenu',
-              categorie: 'autre',
-              actif: null,
-              description: `Vente Or — ${o.nom}`,
-            }],
+        { text: `✓ Vente totale → Liquidités`, onPress: () =>
+          setData(d => applyCession({
+            data:d, type:'Or', nom:o.nom, idx:i, qtyVendue:o.quantite,
+            prixUnit:prixOr, dateStr:new Date().toISOString().slice(0,10),
+            dest:'liquidites', pruUnit, listeKey:'or',
           }))
         },
       ]
@@ -1494,6 +1739,14 @@ function SubOr({ data, setData, onBack }) {
           <Text style={{ fontSize:10, color:C.goldD, marginTop:2 }}>Source : BAM + LBMA — 1 kg = {fmt(prixOr * 1000)}</Text>
         </View>
         <SectionTitle>Mes stocks d'or</SectionTitle>
+        {/* C15 — Empty state */}
+        {or.length === 0 && !showForm && (
+          <View style={{ padding:24, alignItems:'center', gap:6 }}>
+            <Text style={{ fontSize:28 }}>🥇</Text>
+            <Text style={{ fontSize:14, fontWeight:'700', color:C.dark }}>Aucun stock d'or</Text>
+            <Text style={{ fontSize:12, color:C.g3, textAlign:'center' }}>Ajoutez vos lingots, pièces et bijoux en or pour les intégrer à votre patrimoine.</Text>
+          </View>
+        )}
         {or.map((o, i) => {
           const ve = o.quantite * prixOr, vr = Math.max(ve, o.prixOffert || 0);
           return (
@@ -1532,7 +1785,7 @@ function SubOr({ data, setData, onBack }) {
               {editIdx >= 0 ? 'Modifier le stock d\'or' : 'Ajouter un stock d\'or'}
             </Text>
             <Input label="Designation"            value={nom} onChangeText={setNom} placeholder="Lingot 100g, Pieces 18K..."/>
-            <Input label="Quantite (grammes)"     value={qty} onChangeText={setQty} keyboardType="numeric" placeholder="100" unit="g"/>
+            <Input label="Quantité (grammes)"     value={qty} onChangeText={setQty} keyboardType="numeric" placeholder="100" unit="g"/>
             <Input label="Prix d'achat (DH)"      value={pa}  onChangeText={setPa}  keyboardType="numeric" placeholder="85000"/>
             <Input label="Prix offert (optionnel)" value={po}  onChangeText={setPo}  keyboardType="numeric" placeholder="Laisser vide"/>
             <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
@@ -1625,13 +1878,86 @@ function SubImmobilier({ data, setData, onBack }) {
     resetForm();
   }
 
+  // C9 — Suppression avec dialog loyer lié
   function deleteBien(i) {
-    Alert.alert('Supprimer', 'Retirer ce bien immobilier ?', [
-      { text:'Annuler', style:'cancel' },
-      { text:'Supprimer', style:'destructive', onPress:() =>
-        setData(d => ({ ...d, immobilier: d.immobilier.filter((_, j) => j !== i) }))
-      },
-    ]);
+    const b = data.immobilier[i];
+    const loyerLie = (data.revenus_recurrents || []).find(r =>
+      (b.id && r.bienId === b.id) || (!r.bienId && b.nom && r.bienNom === b.nom)
+    );
+    if (loyerLie) {
+      Alert.alert(
+        'Bien lié à un loyer',
+        `Ce bien est lié au revenu récurrent "${loyerLie.label || 'Loyer'}". Que faire ?`,
+        [
+          { text:'Annuler', style:'cancel' },
+          {
+            text:'Désactiver le loyer',
+            onPress: () => setData(d => ({
+              ...d,
+              immobilier: d.immobilier.filter((_, j) => j !== i),
+              revenus_recurrents: (d.revenus_recurrents || []).map(r =>
+                r.id === loyerLie.id ? { ...r, actif: false, bienSupprime: true } : r
+              ),
+            })),
+          },
+          {
+            text:'Supprimer le loyer',
+            style:'destructive',
+            onPress: () => setData(d => ({
+              ...d,
+              immobilier: d.immobilier.filter((_, j) => j !== i),
+              revenus_recurrents: (d.revenus_recurrents || []).filter(r => r.id !== loyerLie.id),
+            })),
+          },
+        ]
+      );
+    } else {
+      Alert.alert('Supprimer', 'Retirer ce bien immobilier ?', [
+        { text:'Annuler', style:'cancel' },
+        { text:'Supprimer', style:'destructive', onPress:() =>
+          setData(d => ({ ...d, immobilier: d.immobilier.filter((_, j) => j !== i) }))
+        },
+      ]);
+    }
+  }
+
+  // C3 — Vente bien immobilier (totale — prix global)
+  function vendreBien(i) {
+    const b = data.immobilier[i];
+    const vr = valImmo(b);
+    const pruUnit = b.prixAchat || 0;
+    Alert.alert(
+      `Vendre — ${b.nom}`,
+      `Valeur estimée : ${fmt(vr)}\nPrix d'achat : ${fmt(pruUnit)}\n\nSaisir le prix de cession pour enregistrer la vente ?`,
+      [
+        { text:'Annuler', style:'cancel' },
+        {
+          text:`✓ Vendre au prix estimé → Banque`,
+          onPress: () => {
+            const loyerLie = (data.revenus_recurrents || []).find(r =>
+              (b.id && r.bienId === b.id) || (!r.bienId && b.nom && r.bienNom === b.nom)
+            );
+            setData(d => {
+              let newData = applyCession({
+                data:d, type:'Immobilier', nom:b.nom, idx:i, qtyVendue:1,
+                prixUnit:vr, dateStr:new Date().toISOString().slice(0,10),
+                dest:'banque', pruUnit, listeKey:'immobilier',
+              });
+              // C3+C9 — désactiver loyer lié automatiquement
+              if (loyerLie) {
+                newData = {
+                  ...newData,
+                  revenus_recurrents: (newData.revenus_recurrents || []).map(r =>
+                    r.id === loyerLie.id ? { ...r, actif: false, bienSupprime: true } : r
+                  ),
+                };
+              }
+              return newData;
+            });
+          },
+        },
+      ]
+    );
   }
 
   const showForm = showAdd || editIdx >= 0;
@@ -1645,14 +1971,21 @@ function SubImmobilier({ data, setData, onBack }) {
           <Text style={{ color:C.white, fontWeight:'700', fontSize:26 }}>{fmt(total)}</Text>
         </View>
 
+        {/* C15 — Empty state */}
+        {immo.length === 0 && !showForm && (
+          <View style={{ padding:24, alignItems:'center', gap:6 }}>
+            <Text style={{ fontSize:28 }}>🏠</Text>
+            <Text style={{ fontSize:14, fontWeight:'700', color:C.dark }}>Aucun bien immobilier</Text>
+            <Text style={{ fontSize:12, color:C.g3, textAlign:'center' }}>Ajoutez vos appartements, terrains et biens locatifs pour suivre leur valorisation.</Text>
+          </View>
+        )}
         {immo.map((b, i) => {
           const ve = b.prixM2 * b.surface, vr = valImmo(b);
-          // Sync Budget↔Actifs : cherche un loyer lié peu importe le type de bien
+          // C10 — Liaison ID-only : bienId prioritaire, bienNom uniquement pour données pré-C10
           const loyerLie = (data.revenus_recurrents || []).find(r =>
             r.actif !== false && (
-              (b.id && r.bienId === b.id) ||                                   // match exact par id
-              (b.nom && r.bienNom && r.bienNom === b.nom) ||                   // match bienNom (Budget)
-              r.label?.toLowerCase().includes(b.nom?.toLowerCase())            // fallback label (Actifs auto)
+              (b.id && r.bienId === b.id) ||                                   // C10 — match exact par id (prioritaire)
+              (!r.bienId && b.nom && r.bienNom && r.bienNom === b.nom)         // fallback bienNom pour données pré-C10 seulement
             )
           ) || null;
           return (
@@ -1692,7 +2025,7 @@ function SubImmobilier({ data, setData, onBack }) {
                 <Text style={{ fontSize:13, fontWeight:'700', color:C.pri }}>{fmt(vr)}</Text>
               </View>
               <MethodSelector value={b.meth} onChange={m => setData(d => ({ ...d, immobilier: d.immobilier.map((x, j) => j === i ? { ...x, meth:m } : x) }))}/>
-              <ActionBtns onEdit={() => startEdit(i)} onDelete={() => deleteBien(i)}/>
+              <ActionBtns onEdit={() => startEdit(i)} onDelete={() => deleteBien(i)} onVendre={() => vendreBien(i)}/>
             </Card>
           );
         })}
@@ -1820,6 +2153,27 @@ function SubTransport({ data, setData, onBack }) {
     ]);
   }
 
+  // C3 — Vente véhicule (totale)
+  function vendreVehicule(i) {
+    const t = transport[i];
+    const vr = valTransport(t);
+    Alert.alert(
+      `Vendre — ${t.nom}`,
+      `Valeur estimée : ${fmt(vr)}\nPrix d'achat : ${fmt(t.prixAchat)}`,
+      [
+        { text:'Annuler', style:'cancel' },
+        {
+          text:`✓ Vendre au prix estimé → Banque`,
+          onPress: () => setData(d => applyCession({
+            data:d, type:'Transport', nom:t.nom, idx:i, qtyVendue:1,
+            prixUnit:vr, dateStr:new Date().toISOString().slice(0,10),
+            dest:'banque', pruUnit:t.prixAchat, listeKey:'transport',
+          })),
+        },
+      ]
+    );
+  }
+
   const showForm = showAdd || editIdx >= 0;
 
   return (
@@ -1835,6 +2189,14 @@ function SubTransport({ data, setData, onBack }) {
           <Text style={{ fontSize:11, color:C.goldD }}>Les vehicules perdent en moyenne 15-25% de valeur par an. La depreciation est calculee automatiquement.</Text>
         </View>
 
+        {/* C15 — Empty state */}
+        {transport.length === 0 && !showForm && (
+          <View style={{ padding:24, alignItems:'center', gap:6 }}>
+            <Text style={{ fontSize:28 }}>🚗</Text>
+            <Text style={{ fontSize:14, fontWeight:'700', color:C.dark }}>Aucun véhicule enregistré</Text>
+            <Text style={{ fontSize:12, color:C.g3, textAlign:'center' }}>Ajoutez vos voitures, motos et véhicules pour suivre leur dépréciation.</Text>
+          </View>
+        )}
         {transport.map((t, i) => {
           const vr = valTransport(t);
           const depAuto = valeurDepreciee(t.prixAchat, t.annee, t.type);
@@ -1859,7 +2221,7 @@ function SubTransport({ data, setData, onBack }) {
                 <Text style={{ fontSize:13, fontWeight:'700', color:'#50506A' }}>{fmt(vr)}</Text>
               </View>
               <MethodSelector value={t.meth} onChange={m => setData(d => ({ ...d, transport: d.transport.map((x, j) => j === i ? { ...x, meth:m } : x) }))}/>
-              <ActionBtns onEdit={() => startEdit(i)} onDelete={() => deleteVehicule(i)}/>
+              <ActionBtns onEdit={() => startEdit(i)} onDelete={() => deleteVehicule(i)} onVendre={() => vendreVehicule(i)}/>
             </Card>
           );
         })}
@@ -1867,7 +2229,7 @@ function SubTransport({ data, setData, onBack }) {
         {showForm ? (
           <Card style={{ borderWidth:1.5, borderColor:'#50506A' }}>
             <Text style={{ fontWeight:'700', fontSize:13, marginBottom:10 }}>
-              {editIdx >= 0 ? 'Modifier le vehicule' : 'Ajouter un vehicule'}
+              {editIdx >= 0 ? 'Modifier le véhicule' : 'Ajouter un véhicule'}
             </Text>
             <Input label="Designation" value={nom} onChangeText={setNom} placeholder="Dacia Logan, BMW Serie 3..."/>
             <SelectInput label="Type" value={type} options={['Voiture','Moto','Camion','Autre']} onChange={v => {
@@ -1897,7 +2259,175 @@ function SubTransport({ data, setData, onBack }) {
             </View>
           </Card>
         ) : (
-          <BtnPri onPress={() => setShowAdd(true)} style={{ backgroundColor:'#50506A' }}>+ Ajouter un vehicule</BtnPri>
+          <BtnPri onPress={() => setShowAdd(true)} style={{ backgroundColor:'#50506A' }}>+ Ajouter un véhicule</BtnPri>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── SubCredits (C4) ─────────────────────────────────────────
+const DETTE_TYPES = ['Prêt immobilier', 'Crédit auto', 'Crédit consommation', 'Prêt personnel', 'Découvert bancaire', 'Autre'];
+function SubCredits({ data, setData, onBack }) {
+  const dettes = data.dettes || [];
+  const totalDettes = dettes.reduce((s, d) => s + (d.soldeRestant || 0), 0);
+  const revMensuel  = (data.revenus_recurrents || [])
+    .filter(r => r.actif !== false)
+    .reduce((s, r) => s + (r.montant || 0), 0);
+  const mensTotal   = dettes.reduce((s, d) => s + (d.mensualite || 0), 0);
+  const txEndett    = revMensuel > 0 ? mensTotal / revMensuel : null;
+
+  const EMPTY = { nom:'', type:'Prêt immobilier', preteur:'', montantInitial:'', soldeRestant:'', tauxAnnuel:'', mensualite:'', dateDebut:'' };
+  const [showAdd, setShowAdd] = useState(false);
+  const [editIdx, setEditIdx] = useState(-1);
+  const [form, setForm] = useState(EMPTY);
+  const up = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  function startEdit(i) {
+    const d = dettes[i];
+    setForm({
+      nom: d.nom || '', type: d.type || 'Prêt immobilier', preteur: d.preteur || '',
+      montantInitial: String(d.montantInitial || ''), soldeRestant: String(d.soldeRestant || ''),
+      tauxAnnuel: String(d.tauxAnnuel || ''), mensualite: String(d.mensualite || ''),
+      dateDebut: d.dateDebut || '',
+    });
+    setEditIdx(i); setShowAdd(false);
+  }
+
+  function resetForm() { setForm(EMPTY); setEditIdx(-1); setShowAdd(false); }
+
+  function saveDette() {
+    if (!form.nom || !isNum(form.soldeRestant)) return;
+    const entry = {
+      id: editIdx >= 0 ? dettes[editIdx].id : Date.now(),
+      nom: form.nom.trim(), type: form.type, preteur: form.preteur.trim(),
+      montantInitial: parseFloat(form.montantInitial) || 0,
+      soldeRestant: parseFloat(form.soldeRestant) || 0,
+      tauxAnnuel: parseFloat(form.tauxAnnuel) || 0,
+      mensualite: parseFloat(form.mensualite) || 0,
+      dateDebut: form.dateDebut || null,
+    };
+    if (editIdx >= 0) {
+      setData(d => ({ ...d, dettes: d.dettes.map((x, i) => i === editIdx ? entry : x) }));
+    } else {
+      setData(d => ({ ...d, dettes: [...(d.dettes || []), entry] }));
+    }
+    resetForm();
+  }
+
+  function deleteDette(i) {
+    Alert.alert('Supprimer', 'Supprimer cette dette ?', [
+      { text:'Annuler', style:'cancel' },
+      { text:'Supprimer', style:'destructive', onPress:() =>
+        setData(d => ({ ...d, dettes: (d.dettes || []).filter((_, j) => j !== i) }))
+      },
+    ]);
+  }
+
+  const showForm = showAdd || editIdx >= 0;
+  const txColor = txEndett === null ? C.g3 : txEndett > 0.40 ? C.rneg : txEndett > 0.33 ? '#E67E22' : C.gpos;
+
+  return (
+    <View style={{ flex:1 }}>
+      <TopBar title="Crédits & Dettes" subtitle="Passifs financiers" onBack={onBack}/>
+      <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:12 }}>
+        {/* Hero */}
+        <View style={{ backgroundColor:'#8B3A3A', borderRadius:16, padding:16, marginBottom:12 }}>
+          <Text style={{ color:'rgba(255,200,200,0.85)', fontSize:12 }}>Total des dettes</Text>
+          <Text style={{ color:C.white, fontWeight:'700', fontSize:26, marginVertical:4 }}>{fmt(totalDettes)}</Text>
+          {txEndett !== null && (
+            <View style={{ backgroundColor:'rgba(0,0,0,0.2)', borderRadius:8, paddingHorizontal:10, paddingVertical:5, alignSelf:'flex-start' }}>
+              <Text style={{ color: txEndett > 0.40 ? '#FFB3B3' : txEndett > 0.33 ? '#FFE0A0' : '#B3FFD4', fontSize:12, fontWeight:'600' }}>
+                Taux d'endettement : {Math.round(txEndett * 100)}% {txEndett > 0.40 ? '⚠ Critique' : txEndett > 0.33 ? '! Élevé' : '✓ OK'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {dettes.length > 0 && (
+          <Card style={{ marginBottom:12 }}>
+            <Text style={{ fontWeight:'700', fontSize:12, color:C.dark, marginBottom:8 }}>Récapitulatif</Text>
+            <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:4 }}>
+              <Text style={{ fontSize:12, color:C.g3 }}>Capital restant dû</Text>
+              <Text style={{ fontSize:12, fontWeight:'700', color:C.rneg }}>{fmt(totalDettes)}</Text>
+            </View>
+            {mensTotal > 0 && (
+              <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:4 }}>
+                <Text style={{ fontSize:12, color:C.g3 }}>Mensualités totales</Text>
+                <Text style={{ fontSize:12, fontWeight:'700', color:C.dark }}>{fmt(mensTotal)}/mois</Text>
+              </View>
+            )}
+            {txEndett !== null && (
+              <View style={{ flexDirection:'row', justifyContent:'space-between' }}>
+                <Text style={{ fontSize:12, color:C.g3 }}>Taux d'endettement</Text>
+                <Text style={{ fontSize:12, fontWeight:'700', color:txColor }}>{Math.round(txEndett * 100)}%</Text>
+              </View>
+            )}
+          </Card>
+        )}
+
+        {dettes.length === 0 && !showForm && (
+          <Card style={{ backgroundColor:'#FFF5F5', borderLeftWidth:4, borderLeftColor:'#C0392B', marginBottom:12 }}>
+            <Text style={{ fontWeight:'700', fontSize:13, color:'#C0392B', marginBottom:4 }}>Aucune dette enregistrée</Text>
+            <Text style={{ fontSize:12, color:C.dark }}>Ajoutez vos crédits et dettes pour calculer votre patrimoine net et suivre votre taux d'endettement.</Text>
+          </Card>
+        )}
+
+        {dettes.map((d, i) => (
+          <Card key={d.id || i} style={{ borderLeftWidth:3, borderLeftColor:'#C0392B', marginBottom:8 }}>
+            <View style={{ flexDirection:'row', justifyContent:'space-between', marginBottom:4 }}>
+              <View style={{ flex:1 }}>
+                <Text style={{ fontWeight:'700', fontSize:13, color:C.dark }}>{d.nom}</Text>
+                <Text style={{ fontSize:11, color:C.g3 }}>{d.type}{d.preteur ? ` · ${d.preteur}` : ''}</Text>
+              </View>
+              <View style={{ alignItems:'flex-end' }}>
+                <Text style={{ fontWeight:'700', fontSize:13, color:C.rneg }}>{fmt(d.soldeRestant)}</Text>
+                {d.mensualite > 0 && <Text style={{ fontSize:10, color:C.g3 }}>{fmt(d.mensualite)}/mois</Text>}
+              </View>
+            </View>
+            {d.montantInitial > 0 && (
+              <View style={{ marginVertical:4 }}>
+                <View style={{ height:4, backgroundColor:C.g1, borderRadius:2, overflow:'hidden' }}>
+                  <View style={{ width:`${Math.min(100, (d.soldeRestant / d.montantInitial) * 100)}%`, height:'100%', backgroundColor:'#C0392B', borderRadius:2 }}/>
+                </View>
+                <Text style={{ fontSize:9, color:C.g3, marginTop:2 }}>
+                  {Math.round((1 - d.soldeRestant / d.montantInitial) * 100)}% remboursé
+                  {d.tauxAnnuel > 0 ? ` · Taux : ${d.tauxAnnuel}%` : ''}
+                  {d.dateDebut ? ` · Depuis ${d.dateDebut}` : ''}
+                </Text>
+              </View>
+            )}
+            <View style={{ flexDirection:'row', gap:8, marginTop:6 }}>
+              <BtnSec onPress={() => startEdit(i)} style={{ flex:1, paddingVertical:6 }}>Modifier</BtnSec>
+              <BtnSec onPress={() => deleteDette(i)} style={{ flex:1, paddingVertical:6, borderColor:C.rneg }}>
+                <Text style={{ color:C.rneg, fontSize:12 }}>Supprimer</Text>
+              </BtnSec>
+            </View>
+          </Card>
+        ))}
+
+        {showForm ? (
+          <Card style={{ borderWidth:1.5, borderColor:'#C0392B', marginTop:8 }}>
+            <Text style={{ fontWeight:'700', fontSize:13, marginBottom:12 }}>
+              {editIdx >= 0 ? 'Modifier la dette' : 'Ajouter un crédit / une dette'}
+            </Text>
+            <Input label="Libellé" value={form.nom} onChangeText={v => up('nom', v)} placeholder="Ex : Crédit immobilier Marrakech"/>
+            <SelectInput label="Type" value={form.type} onChange={v => up('type', v)} options={DETTE_TYPES}/>
+            <Input label="Établissement prêteur (optionnel)" value={form.preteur} onChangeText={v => up('preteur', v)} placeholder="Ex : CIH Bank"/>
+            <Input label="Montant initial (DH)" value={form.montantInitial} onChangeText={v => up('montantInitial', v)} keyboardType="numeric" placeholder="500 000"/>
+            <Input label="Capital restant dû (DH) *" value={form.soldeRestant} onChangeText={v => up('soldeRestant', v)} keyboardType="numeric" placeholder="380 000"/>
+            <Input label="Taux annuel (%)" value={form.tauxAnnuel} onChangeText={v => up('tauxAnnuel', v)} keyboardType="numeric" placeholder="4.5"/>
+            <Input label="Mensualité (DH)" value={form.mensualite} onChangeText={v => up('mensualite', v)} keyboardType="numeric" placeholder="3 200"/>
+            <Input label="Date de début (MM/AAAA)" value={form.dateDebut} onChangeText={v => up('dateDebut', v)} placeholder="03/2020"/>
+            <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
+              <BtnSec onPress={resetForm} style={{ flex:1 }}>Annuler</BtnSec>
+              <BtnPri onPress={saveDette} disabled={!form.nom || !isNum(form.soldeRestant)} style={{ flex:1, backgroundColor:'#C0392B' }}>
+                {editIdx >= 0 ? 'Enregistrer' : 'Ajouter'}
+              </BtnPri>
+            </View>
+          </Card>
+        ) : (
+          <BtnPri onPress={() => setShowAdd(true)} style={{ marginTop:8, backgroundColor:'#C0392B' }}>+ Ajouter un crédit / une dette</BtnPri>
         )}
       </ScrollView>
     </View>
@@ -1915,6 +2445,7 @@ const PageActifs = React.memo(function PageActifs({ onNav }) {
   const setPage   = usePatrimoineStore(s => s.setPage);
   const setSub    = (id) => setPage('actifs', id);
 
+  const dettes = useMemo(() => calcDettes(data.dettes), [data.dettes]);
   const cats = useMemo(() => [
     { id:'liquide',    section:'Liquidites & Epargne',       label:'Argent Liquide & Devises', abbr:'LIQ', col:C.gpos,    val:calcLiquide(data.liquidites),    detail:'DH + ' + data.liquidites.devises.length + ' devises' },
     { id:'banque',     section:'Liquidites & Epargne',       label:'Argent en Banque',          abbr:'BNQ', col:C.navy,    val:calcBanque(data.banque),          detail:data.banque.length + ' compte(s)' },
@@ -1924,9 +2455,12 @@ const PageActifs = React.memo(function PageActifs({ onNav }) {
     { id:'or',         section:'Actifs reels',                label:'Or & Metaux Precieux',      abbr:'OR',  col:C.gold,    val:calcOr(data.or, data.prixOr),     detail:data.or.reduce((s, o) => s + o.quantite, 0) + ' g au total' },
     { id:'immobilier', section:'Actifs reels',                label:'Immobilier & Terrains',     abbr:'IMM', col:'#B46428', val:calcImmo(data.immobilier),         detail:data.immobilier.length + ' bien(s)' },
     { id:'transport',  section:'Actifs reels',                label:'Biens de Transport',        abbr:'VEH', col:'#50506A', val:calcTransport(data.transport),     detail:data.transport.length + ' vehicule(s)' },
-  ], [data]);
+    // C4 — Crédits & Dettes (affiché en négatif dans la section passif)
+    { id:'credits',    section:'Credits & Dettes',            label:'Credits & Dettes',          abbr:'DET', col:'#C0392B', val:dettes,                           detail:(data.dettes || []).length + ' dette(s) enregistree(s)' },
+  ], [data, dettes]);
 
-  const total = useMemo(() => cats.reduce((s, c) => s + c.val, 0), [cats]);
+  const totalBrut = useMemo(() => cats.filter(c => c.id !== 'credits').reduce((s, c) => s + c.val, 0), [cats]);
+  const total = totalBrut; // alias utilisé pour les barres de répartition (sur brut)
 
   if (sub === 'liquide')    return <SubLiquide    data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
   if (sub === 'banque')     return <SubBanque     data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
@@ -1936,13 +2470,19 @@ const PageActifs = React.memo(function PageActifs({ onNav }) {
   if (sub === 'or')         return <SubOr         data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
   if (sub === 'immobilier') return <SubImmobilier data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
   if (sub === 'transport')  return <SubTransport  data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
+  if (sub === 'credits')    return <SubCredits    data={data} setData={setData} onBack={() => setPage('actifs', null)}/>;
 
-  const sections = ['Liquidites & Epargne','Investissements financiers','Actifs reels'];
+  const sections = ['Liquidites & Epargne','Investissements financiers','Actifs reels','Credits & Dettes'];
   return (
     <View style={{ flex:1, minHeight:0 }}>
       <View style={{ backgroundColor:C.pri, padding:14 }}>
-        <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:12 }}>Total patrimoine</Text>
-        <Text style={{ color:C.white, fontWeight:'700', fontSize:22 }}>{discret ? '•••• DH' : fmt(total)}</Text>
+        <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:12 }}>Patrimoine brut</Text>
+        <Text style={{ color:C.white, fontWeight:'700', fontSize:22 }}>{discret ? '•••• DH' : fmt(totalBrut)}</Text>
+        {dettes > 0 && (
+          <Text style={{ color:'rgba(255,180,180,0.9)', fontSize:11, marginTop:2 }}>
+            Net après dettes : {discret ? '•••• DH' : fmt(totalBrut - dettes)}
+          </Text>
+        )}
       </View>
       <ScrollView
         style={{ flex:1, backgroundColor:C.g1 }}

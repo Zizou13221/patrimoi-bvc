@@ -1078,20 +1078,32 @@ const PageSuiviBudget = ({ onNav }) => {
   useEffect(() => {
     const now     = new Date();
     const todayD  = now.getDate();
-    const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const year    = now.getFullYear();
+    const month   = now.getMonth();
+    // C11 — jours 29/30/31 : dernier jour réel du mois si le jour configuré dépasse
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const currentYM = `${year}-${String(month + 1).padStart(2, '0')}`;
     setData(d => {
       const recs = d.revenus_recurrents || [];
-      const toApply = recs.filter(r => r.actif !== false && todayD >= r.jour && r.dernierAjout !== currentYM);
+      // C11 — Le jour effectif = min(r.jour, lastDayOfMonth)
+      const toApply = recs.filter(r => {
+        if (r.actif === false || r.dernierAjout === currentYM) return false;
+        const effectiveDay = Math.min(r.jour, lastDayOfMonth);
+        return todayD >= effectiveDay;
+      });
       if (toApply.length === 0) return d;
-      const newOps = toApply.map(r => ({
-        id:          `rec-${r.id}-${currentYM}`,
-        date:        new Date(now.getFullYear(), now.getMonth(), r.jour).toISOString(),
-        montant:     r.montant,
-        type:        'revenu',
-        categorie:   'autre',
-        actif:       null,
-        description: r.label,
-      }));
+      const newOps = toApply.map(r => {
+        const effectiveDay = Math.min(r.jour, lastDayOfMonth);
+        return {
+          id:          `rec-${r.id}-${currentYM}`,
+          date:        new Date(year, month, effectiveDay).toISOString(),
+          montant:     r.montant,
+          type:        'revenu',
+          categorie:   'autre',
+          actif:       null,
+          description: r.label,
+        };
+      });
       return {
         ...d,
         operations: [...(d.operations || []), ...newOps],
@@ -1192,10 +1204,12 @@ const PageSuiviBudget = ({ onNav }) => {
     const currentYM = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
     const msgs = [];
 
-    // Revenus récurrents : arrivée dans 1-2 jours
+    // C11 — Revenus récurrents : jours 29/30/31 ramenés au dernier jour du mois
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     revenus_recurrents.forEach(r => {
       if (r.actif === false) return;
-      const daysUntil = r.jour - todayD;
+      const effectiveDay = Math.min(r.jour, lastDayOfMonth);
+      const daysUntil = effectiveDay - todayD;
       if (daysUntil === 1) msgs.push({ type:'info', text:`🔔 ${r.label} arrive demain (+${r.montant?.toLocaleString('fr-FR')} DH)` });
       if (daysUntil === 0 && r.dernierAjout !== currentYM) msgs.push({ type:'ok', text:`💰 ${r.label} a été enregistré aujourd'hui (+${r.montant?.toLocaleString('fr-FR')} DH)` });
     });
@@ -1234,11 +1248,16 @@ const PageSuiviBudget = ({ onNav }) => {
     setModalOp(true);
   }, []);
 
-  const handleDelete = useCallback((id) => {
-    Alert.alert('Supprimer', 'Supprimer cette opération ?', [
+  const handleDelete = useCallback((op) => {
+    const isEpargne = op.type === 'epargne';
+    const titre = isEpargne ? 'Supprimer cette opération d\'épargne ?' : 'Supprimer cette opération ?';
+    const msg = isEpargne
+      ? `Cette opération a modifié votre patrimoine lors de sa saisie.\n\nAttention : la suppression de l'opération n'annulera pas automatiquement l'effet sur votre actif. Ajustez manuellement votre actif si nécessaire.`
+      : 'Cette opération sera définitivement supprimée.';
+    Alert.alert(titre, msg, [
       { text:'Annuler', style:'cancel' },
       { text:'Supprimer', style:'destructive',
-        onPress: () => setOperations(ops => ops.filter(o => o.id !== id)) },
+        onPress: () => setOperations(ops => ops.filter(o => o.id !== op.id)) },
     ]);
   }, [setOperations]);
 
@@ -1502,7 +1521,7 @@ const PageSuiviBudget = ({ onNav }) => {
                   style={[s.opRow, !isLast && s.opBorder]}
                   activeOpacity={0.55}
                   onPress={() => handleEdit(op)}
-                  onLongPress={() => handleDelete(op.id)}
+                  onLongPress={() => handleDelete(op)}
                   delayLongPress={600}
                 >
                   <View style={[s.opIconBg, { backgroundColor:display.color+'22' }]}>

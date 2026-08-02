@@ -100,4 +100,14 @@ export const usePatrimoineStore = create((set) => ({
     if (state.user && !state.demoMode) enqueueSync(state.user.id, newData);
     return { data: newData };
   }),
+
+  // C14 — Ignorer un conseil (dismiss)
+  dismissConseil: (id) => set(state => {
+    const newData = {
+      ...state.data,
+      conseils_dismissed: { ...(state.data.conseils_dismissed || {}), [id]: true },
+    };
+    if (state.user && !state.demoMode) enqueueSync(state.user.id, newData);
+    return { data: newData };
+  }),
 }));

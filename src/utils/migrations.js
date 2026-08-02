@@ -12,7 +12,7 @@
  *   const migratedData = migrateData(rawData);
  */
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 // ── Liste ordonnée des migrations ─────────────────────────────────────────────
 // migration[0] = passe de schemaVersion 0 (absent) → 1
@@ -44,6 +44,30 @@ const MIGRATIONS = [
     operations:   data.operations   ?? [],
     budgetCibles: data.budgetCibles ?? {},
   }),
+
+  // v2 → v3 : C1 versementsCumulesPEA, C2 dateOuverturePEA,
+  //           C4 dettes, C3 cessions, C14 conseils_dismissed
+  (data) => {
+    // Estimation des versements cumulés PEA = somme des PRU × quantités
+    // (approx fiable pour les comptes existants sans historique de versements)
+    const estimVersements = (data.pea ?? []).reduce(
+      (s, t) => s + (t.pru || 0) * (t.qty || 0), 0
+    );
+    return {
+      ...data,
+      schemaVersion: 3,
+      // C1 — plafond PEA basé sur versements, pas la valorisation
+      versementsCumulesPEA: data.versementsCumulesPEA ?? Math.round(estimVersements),
+      // C2 — date d'ouverture du plan PEA (null = non renseignée)
+      dateOuverturePEA: data.dateOuverturePEA ?? null,
+      // C4 — Crédits & Dettes : [{ id, nom, type, preteur, montantInitial, soldeRestant, tauxAnnuel, mensualite, dateDebut }]
+      dettes: data.dettes ?? [],
+      // C3 — Cessions réalisées : [{ id, date, type, nom, montantCession, coutRevient, plRealise }]
+      cessions: data.cessions ?? [],
+      // C14 — Conseils ignorés par l'utilisateur : { [id]: true }
+      conseils_dismissed: data.conseils_dismissed ?? {},
+    };
+  },
 ];
 
 // ── Applique toutes les migrations manquantes ─────────────────────────────────

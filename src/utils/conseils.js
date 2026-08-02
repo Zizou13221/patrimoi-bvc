@@ -2,6 +2,7 @@ import { C } from '../constants/colors';
 import {
   totalPatrimoine, calcLiquide, calcBanque, calcPEA, calcPEACout,
   calcCT, calcCTCout, calcOr, calcImmo, calcCarnet, calcTransport,
+  calcDettes,
 } from './calc';
 import { fmt, pctDiff } from './fmt';
 
@@ -33,8 +34,9 @@ function detentionMois(dateStr) {
 // Revenus passifs annuels (carnet + loyers + dividendes de l'année)
 function calcRevenuPassifAnnuel(data) {
   const interets = (data.carnet || []).reduce((s, c) => s + (c.solde || 0) * (c.taux || 0) / 100, 0);
+  // C Fix — loyer détecté par type='Loyer recu' (pas par label)
   const loyers   = (data.revenus_recurrents || [])
-    .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+    .filter(r => r.actif !== false && r.type === 'Loyer recu')
     .reduce((s, r) => s + (r.montant || 0) * 12, 0);
   const annee    = new Date().getFullYear();
   const divs     = (data.operations || [])
@@ -56,21 +58,27 @@ function calcBudgetMois(data) {
 export function generateConseils(data) {
   const total = totalPatrimoine(data);
   if (total === 0) return { conseils: [], total: 0 };
-  const conseils = [];
+  const dismissed = data.conseils_dismissed || {};
+  const raw = [];
 
   // ── Ratios de base ─────────────────────────────────────────────────────────
-  const liqTotal  = calcLiquide(data.liquidites) + calcBanque(data.banque);
-  const liqRatio  = liqTotal / total;
-  const peaVal    = calcPEA(data.pea);
-  const peaCout   = calcPEACout(data.pea);
-  const ctVal     = calcCT(data.ct);
-  const ctCout    = calcCTCout(data.ct);
-  const orVal     = calcOr(data.or, data.prixOr);
-  const orRatio   = orVal / total;
-  const immoVal   = calcImmo(data.immobilier);
-  const immoRatio = immoVal / total;
-  const revPassif = calcRevenuPassifAnnuel(data);
-  const rendPct   = total > 0 ? (revPassif.total / total) * 100 : 0;
+  const liqTotal     = calcLiquide(data.liquidites) + calcBanque(data.banque);
+  const liqRatio     = liqTotal / total;
+  const peaVal       = calcPEA(data.pea);
+  const peaCout      = calcPEACout(data.pea);
+  const ctVal        = calcCT(data.ct);
+  const ctCout       = calcCTCout(data.ct);
+  const orVal        = calcOr(data.or, data.prixOr);
+  const orRatio      = orVal / total;
+  const immoVal      = calcImmo(data.immobilier);
+  const immoRatio    = immoVal / total;
+  const revPassif    = calcRevenuPassifAnnuel(data);
+  const rendPct      = total > 0 ? (revPassif.total / total) * 100 : 0;
+  // C1 — versements cumulés PEA (contrôle du plafond 600 000 DH)
+  const versements   = data.versementsCumulesPEA ?? calcPEACout(data.pea);
+  // C4 — dettes
+  const detteTotal   = calcDettes(data.dettes || []);
+  const conseils = raw; // alias — on utilisera raw puis on filtre + trie à la fin
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIORITÉ 1 — Alertes
@@ -107,35 +115,57 @@ export function generateConseils(data) {
     });
   }
 
-  // 1d. PEA : exonération fiscale dans < 12 mois
+  // 1d. PEA : exonération fiscale dans < 12 mois — C2 : basé sur dateOuverturePEA (plan)
+  const dateOuvPEA = data.dateOuverturePEA || null;
+  const moisOuvPEA = dateOuvPEA ? detentionMois(dateOuvPEA) : null;
   const peaTitresAvecDate = (data.pea || []).filter(t => t.dateAchat);
-  const peaPresque5ans = peaTitresAvecDate.filter(t => {
-    const m = detentionMois(t.dateAchat);
-    return m !== null && m >= 48 && m < 60;
-  });
-  if (peaPresque5ans.length > 0) {
-    const tickers    = peaPresque5ans.map(t => t.ticker).join(', ');
-    const resteMois  = 60 - (detentionMois(peaPresque5ans[0].dateAchat) ?? 60);
+  if (dateOuvPEA && moisOuvPEA !== null && moisOuvPEA >= 48 && moisOuvPEA < 60) {
+    const resteMois = 60 - moisOuvPEA;
     conseils.push({
-      id: 'pea_exo', priority: 1, couleur: C.pri, icon: '⏱',
+      id: 'pea_exo', priority: 1, couleur: C.pri, icon: '⏱', impact: resteMois,
       titre: `PEA : exonération fiscale dans ~${resteMois} mois`,
-      corps: `${tickers} atteindront les 5 ans de détention dans environ ${resteMois} mois. À titre informatif : au Maroc, les plus-values sur titres cotés détenus plus de 5 ans via PEA bénéficient d'une exonération d'IR. Consultez un conseiller pour votre situation spécifique.`,
+      corps: `Votre PEA a été ouvert le ${dateOuvPEA} (${moisOuvPEA} mois). À titre informatif : les plus-values sur PEA ouvert depuis plus de 5 ans bénéficient d'une exonération d'IR au Maroc. Consultez un conseiller pour votre situation spécifique.`,
       action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
     });
+  }
+
+  // 1e. Endettement critique : mensualités > 40% des revenus (P1)
+  if (detteTotal > 0 && (data.revenus_recurrents || []).length > 0) {
+    const revMensuel = (data.revenus_recurrents || [])
+      .filter(r => r.actif !== false)
+      .reduce((s, r) => s + (r.montant || 0), 0);
+    const mensTotal  = (data.dettes || []).reduce((s, d) => s + (d.mensualite || 0), 0);
+    const txEndett   = revMensuel > 0 ? mensTotal / revMensuel : 0;
+    if (txEndett > 0.40) {
+      conseils.push({
+        id: 'endett_critique', priority: 1, couleur: C.rneg, icon: '⚠', impact: txEndett,
+        titre: `Taux d'endettement critique (${Math.round(txEndett * 100)}%)`,
+        corps: `Vos mensualités de crédit (${fmt(mensTotal)}/mois) représentent ${Math.round(txEndett * 100)}% de vos revenus (${fmt(revMensuel)}/mois). À titre informatif, un taux supérieur à 40% est considéré comme à risque par les organismes de crédit marocains. Consultez un conseiller financier.`,
+        action: 'Voir mes dettes', nav: 'actifs', sub: 'credits',
+      });
+    } else if (txEndett > 0.33) {
+      // 2f. Endettement élevé : 33-40% (P2)
+      conseils.push({
+        id: 'endett_eleve', priority: 2, couleur: '#E67E22', icon: '!', impact: txEndett,
+        titre: `Taux d'endettement élevé (${Math.round(txEndett * 100)}%)`,
+        corps: `Vos mensualités de crédit (${fmt(mensTotal)}/mois) représentent ${Math.round(txEndett * 100)}% de vos revenus (${fmt(revMensuel)}/mois). À titre informatif, la norme prudentielle BAM recommande de ne pas dépasser 33%. Évaluez les options de renégociation avec votre banque.`,
+        action: 'Voir mes dettes', nav: 'actifs', sub: 'credits',
+      });
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIORITÉ 2 — Optimisations importantes
   // ══════════════════════════════════════════════════════════════════════════
 
-  // 2a. PEA sous le plafond
-  if (peaVal < PEA_PLAFOND) {
-    const reste = PEA_PLAFOND - peaVal;
+  // 2a. PEA sous le plafond — C1 : contrôle sur versements cumulés (pas la valorisation)
+  if (versements < PEA_PLAFOND) {
+    const reste = PEA_PLAFOND - versements;
     const plPct = peaCout > 0 ? pctDiff(peaVal, peaCout) : null;
     conseils.push({
-      id: 'pea', priority: 2, couleur: C.pri, icon: '★',
-      titre: `PEA : ${fmt(reste)} de plafond disponible`,
-      corps: `Votre PEA est à ${fmt(peaVal)} sur ${fmt(PEA_PLAFOND)} de plafond autorisé.${plPct !== null ? ` Performance actuelle : ${plPct >= 0 ? '+' : ''}${plPct.toFixed(1)}%.` : ''} À titre informatif : l'enveloppe PEA offre un cadre fiscal avantageux au Maroc après 5 ans de détention.`,
+      id: 'pea', priority: 2, couleur: C.pri, icon: '★', impact: reste,
+      titre: `PEA : ${fmt(reste)} de plafond de versements disponible`,
+      corps: `Vos versements cumulés sur PEA (${fmt(versements)}) restent sous le plafond légal de ${fmt(PEA_PLAFOND)}.${plPct !== null ? ` Performance actuelle : ${plPct >= 0 ? '+' : ''}${plPct.toFixed(1)}%.` : ''} À titre informatif : l'enveloppe PEA offre un cadre fiscal avantageux au Maroc après 5 ans de détention.`,
       action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
     });
   }
@@ -254,17 +284,22 @@ export function generateConseils(data) {
     });
   }
 
-  // 3d. PEA : titres exonérés (≥ 5 ans de détention)
-  const peaDejaExo = peaTitresAvecDate.filter(t => {
-    const m = detentionMois(t.dateAchat);
-    return m !== null && m >= 60;
-  });
-  if (peaDejaExo.length > 0) {
-    const tickers = peaDejaExo.map(t => t.ticker).join(', ');
+  // 3d. PEA : plan exonéré (≥ 5 ans) — C2 : basé sur dateOuverturePEA du plan
+  if (dateOuvPEA && moisOuvPEA !== null && moisOuvPEA >= 60) {
     conseils.push({
-      id: 'pea_exo_ok', priority: 3, couleur: C.gpos, icon: '✓',
-      titre: `PEA : ${peaDejaExo.length} titre(s) avec 5 ans de détention`,
-      corps: `${tickers} — plus de 5 ans de détention. À titre informatif, les titres cotés détenus plus de 5 ans dans un PEA bénéficient d'une exonération d'IR au Maroc sur les plus-values. Consultez un fiscaliste pour confirmer votre situation.`,
+      id: 'pea_exo_ok', priority: 3, couleur: C.gpos, icon: '✓', impact: 1,
+      titre: `PEA exonéré — ${moisOuvPEA} mois d'ancienneté`,
+      corps: `Votre PEA (ouvert le ${dateOuvPEA}) a plus de 5 ans. À titre informatif, les plus-values sur PEA ouvert depuis 5 ans ou plus bénéficient d'une exonération d'IR au Maroc. Consultez un fiscaliste pour confirmer votre situation.`,
+      action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
+    });
+  }
+
+  // 3d-bis. PEA : date d'ouverture non renseignée (pea non vide) — inviter à la renseigner
+  if (!dateOuvPEA && peaVal > 0) {
+    conseils.push({
+      id: 'pea_date_manquante', priority: 3, couleur: C.pri, icon: 'ℹ', impact: 0,
+      titre: 'PEA : renseignez la date d\'ouverture du plan',
+      corps: "La date d'ouverture de votre PEA n'est pas renseignée. Sans cette information, l'application ne peut pas calculer automatiquement votre exonération fiscale au seuil des 5 ans. Renseignez-la dans les détails du PEA.",
       action: 'Voir mon PEA', nav: 'actifs', sub: 'pea',
     });
   }
@@ -322,5 +357,13 @@ export function generateConseils(data) {
     });
   }
 
-  return { conseils: conseils.sort((a, b) => a.priority - b.priority), total };
+  // C14 — Filtrer les conseils ignorés + trier : priorité ASC, puis impact DESC
+  const filtres = conseils
+    .filter(c => !dismissed[c.id])
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return (b.impact ?? 0) - (a.impact ?? 0);
+    });
+
+  return { conseils: filtres, total };
 }

@@ -27,3 +27,13 @@ export const totalCout = (d) =>
   d.immobilier.reduce((s, b) => s + (b.prixAchat || 0), 0) +
   d.transport.reduce((s, t) => s + (t.prixAchat || 0), 0) +
   d.or.reduce((s, o) => s + (o.prixAchat || 0), 0);
+
+// ── C4 — Crédits & Dettes ──────────────────────────────────────────────────
+export const calcDettes = (arr) => (arr || []).reduce((s, d) => s + (d.soldeRestant || 0), 0);
+
+// Patrimoine net = brut − dettes
+export const totalPatrimoineNet = (d) => totalPatrimoine(d) - calcDettes(d.dettes);
+
+// ── C3 — P&L réalisé sur cessions ─────────────────────────────────────────
+export const calcPRealise = (cessions) =>
+  (cessions || []).reduce((s, c) => s + (c.plRealise || 0), 0);
