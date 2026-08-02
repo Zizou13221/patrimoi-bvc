@@ -169,8 +169,9 @@ const PageConseils = React.memo(function PageConseils({ onNav }) {
 
           // ── 5. Rendement passif : (intérêts + loyers + dividendes) / total, cible ≥ 3 % ──
           const interets   = (data.carnet || []).reduce((s, c) => s + (c.solde || 0) * ((c.taux || 0) / 100), 0);
+          // C10 — label exact, pas de champ `type` sur revenus_recurrents
           const loyers     = (data.revenus_recurrents || [])
-            .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+            .filter(r => r.actif !== false && r.label === 'Loyer reçu')
             .reduce((s, r) => s + (r.montant || 0) * 12, 0);
           const dividendes = (data.operations || [])
             .filter(op => op.type === 'revenu' && op.categorie === 'dividende' && new Date(op.date).getFullYear() === now.getFullYear())

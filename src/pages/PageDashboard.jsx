@@ -7,7 +7,7 @@ import {
   calcDettes,
 } from '../utils/calc';
 import { fmt, pctDiff } from '../utils/fmt';
-import { Card, IconBox, BarH, SparklineInteractive, DonutSimple } from '../components/shared';
+import { Card, IconBox, BarH, SparklineInteractive, DonutSimple, EyeIcon } from '../components/shared';
 import { usePatrimoineStore } from '../store/patrimoineStore';
 import { getBvcCache } from '../utils/api';
 import { upsertSnapshot } from '../utils/history';
@@ -28,6 +28,7 @@ const PageDashboard = React.memo(function PageDashboard({
   const isPremium           = usePatrimoineStore(s => s.isPremium);
   const trackingStartDate   = usePatrimoineStore(s => s.trackingStartDate);
   const setHistory          = usePatrimoineStore(s => s.setHistory);
+  const setDiscret          = usePatrimoineStore(s => s.setDiscret);
   const [period, setPeriod]           = useState('1A');
   const [showRendement, setShowRendement] = useState(false);
   const prenom              = user?.user_metadata?.prenom || user?.email?.split('@')[0] || null;
@@ -95,8 +96,9 @@ const PageDashboard = React.memo(function PageDashboard({
   const rendement = useMemo(() => {
     if (total <= 0) return null;
     const interetsCarnet  = (data.carnet || []).reduce((s, c) => s + ((c.solde || 0) * (c.taux || 0) / 100), 0);
+    // C10 — label exact (pas de champ `type` sur revenus_recurrents)
     const loyersAnnuels   = (data.revenus_recurrents || [])
-      .filter(r => r.actif !== false && r.type === 'Loyer recu')
+      .filter(r => r.actif !== false && r.label === 'Loyer reçu')
       .reduce((s, r) => s + (r.montant || 0) * 12, 0);
     const annee = new Date().getFullYear();
     const dividendesAnnuels = (data.operations || [])
@@ -277,15 +279,42 @@ const PageDashboard = React.memo(function PageDashboard({
           </View>
         </View>
 
-        <Text style={{ color:C.white, fontWeight:'700', fontSize:28 }}>
-          {discret ? '•••• DH' : fmt(total)}
-        </Text>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+          {/* Largeur fixe = toujours fmt(total) → l'œil ne bouge jamais */}
+          <View>
+            <Text style={{ color: discret ? 'transparent' : C.white, fontWeight:'700', fontSize:28 }}>
+              {fmt(total)}
+            </Text>
+            {discret && (
+              <Text style={{ position:'absolute', top:0, left:0, color:C.white, fontWeight:'700', fontSize:28 }}>
+                •••• DH
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={() => setDiscret(!discret)}
+            activeOpacity={0.6}
+            hitSlop={{ top:10, bottom:10, left:10, right:10 }}
+          >
+            <EyeIcon open={!discret} />
+          </TouchableOpacity>
+        </View>
 
-        {/* C4 — Patrimoine net (si dettes > 0) */}
+        {/* C4/C21 — Patrimoine net (si dettes > 0) */}
         {detteTotal > 0 && !discret && (
-          <Text style={{ color:'rgba(255,180,180,0.9)', fontSize:12, marginTop:2 }}>
-            Net après dettes : {fmt(totalNet)}
-          </Text>
+          totalNet < 0 ? (
+            <View style={{ flexDirection:'row', alignItems:'center', marginTop:4 }}>
+              <View style={{ backgroundColor:'rgba(192,57,43,0.30)', borderRadius:6, paddingHorizontal:8, paddingVertical:3 }}>
+                <Text style={{ color:'#FF6B6B', fontSize:12, fontWeight:'700' }}>
+                  ⚠ Patrimoine net négatif : {fmt(totalNet)}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ color:'rgba(255,180,180,0.9)', fontSize:12, marginTop:2 }}>
+              Net après dettes : {fmt(totalNet)}
+            </Text>
+          )
         )}
 
         {/* P&L global */}
@@ -502,7 +531,7 @@ const PageDashboard = React.memo(function PageDashboard({
                         Loyers perçus
                       </Text>
                       {(data.revenus_recurrents || [])
-                        .filter(r => r.actif !== false && r.label?.toLowerCase().includes('loyer'))
+                        .filter(r => r.actif !== false && r.label === 'Loyer reçu')
                         .map((r, i) => (
                           <View key={i} style={{ backgroundColor:'#F0FBF4', borderRadius:10, padding:12, marginBottom:6, flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
                             <View>

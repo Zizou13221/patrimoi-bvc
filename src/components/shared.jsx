@@ -403,6 +403,60 @@ const NAV_ITEMS = [
   { id:'params',    label:'Params',   abbr:'PRM' },
 ];
 
+// ── EyeIcon — œil ouvert (ovale + iris + reflet) / fermé (arc + cils) ────────
+export const EyeIcon = ({ open, size = 26, color = 'rgba(255,255,255,0.85)' }) => {
+  const w = size * 1.7;
+  const h = size * 0.72;
+  // Conteneur fixe identique pour les deux états → ne bouge pas au toggle
+  const container = { width: w, height: size, alignItems: 'center', justifyContent: 'center' };
+  if (open) {
+    return (
+      <View style={container}>
+        <View style={{
+          width: w, height: h, borderRadius: h * 0.5,
+          borderWidth: 2, borderColor: color,
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <View style={{
+            width: h * 0.74, height: h * 0.74, borderRadius: h * 0.37,
+            backgroundColor: color, alignItems: 'center', justifyContent: 'center',
+          }}>
+            <View style={{
+              width: h * 0.35, height: h * 0.35, borderRadius: h * 0.175,
+              backgroundColor: 'rgba(0,50,20,0.75)',
+            }}/>
+          </View>
+          <View style={{
+            position: 'absolute', top: h * 0.1, right: w * 0.25,
+            width: h * 0.16, height: h * 0.16, borderRadius: h * 0.08,
+            backgroundColor: 'rgba(255,255,255,0.85)',
+          }}/>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={container}>
+      <View style={{ alignItems: 'center' }}>
+        <View style={{
+          width: w, height: h * 0.6,
+          borderBottomLeftRadius: w * 0.6, borderBottomRightRadius: w * 0.6,
+          borderBottomWidth: 2.5, borderBottomColor: color,
+          borderLeftWidth: 0, borderRightWidth: 0, borderTopWidth: 0,
+        }}/>
+        <View style={{ flexDirection: 'row', gap: 5, marginTop: 2 }}>
+          {[[-12, 4], [-4, 5.5], [4, 5.5], [12, 4]].map(([rot, len], i) => (
+            <View key={i} style={{
+              width: 2, height: len, borderRadius: 1,
+              backgroundColor: color, transform: [{ rotate: `${rot}deg` }],
+            }}/>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
 export const NavBar = ({ active, onChange }) => (
   <View style={{ flexDirection:'row', backgroundColor:C.white, borderTopWidth:1, borderTopColor:C.g2 }}>
     {NAV_ITEMS.map(n => {

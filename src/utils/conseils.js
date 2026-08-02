@@ -2,7 +2,7 @@ import { C } from '../constants/colors';
 import {
   totalPatrimoine, calcLiquide, calcBanque, calcPEA, calcPEACout,
   calcCT, calcCTCout, calcOr, calcImmo, calcCarnet, calcTransport,
-  calcDettes,
+  calcDettes, totalPatrimoineNet,
 } from './calc';
 import { fmt, pctDiff } from './fmt';
 
@@ -34,9 +34,9 @@ function detentionMois(dateStr) {
 // Revenus passifs annuels (carnet + loyers + dividendes de l'année)
 function calcRevenuPassifAnnuel(data) {
   const interets = (data.carnet || []).reduce((s, c) => s + (c.solde || 0) * (c.taux || 0) / 100, 0);
-  // C Fix — loyer détecté par type='Loyer recu' (pas par label)
+  // C10 — loyer détecté par label (revenus_recurrents n'a pas de champ `type`)
   const loyers   = (data.revenus_recurrents || [])
-    .filter(r => r.actif !== false && r.type === 'Loyer recu')
+    .filter(r => r.actif !== false && r.label === 'Loyer reçu')
     .reduce((s, r) => s + (r.montant || 0) * 12, 0);
   const annee    = new Date().getFullYear();
   const divs     = (data.operations || [])
@@ -79,6 +79,19 @@ export function generateConseils(data) {
   // C4 — dettes
   const detteTotal   = calcDettes(data.dettes || []);
   const conseils = raw; // alias — on utilisera raw puis on filtre + trie à la fin
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // C21 — Patrimoine net négatif (dettes > actifs) — alerte maximale
+  // ══════════════════════════════════════════════════════════════════════════
+  const patrimoineNet = totalPatrimoineNet(data);
+  if (patrimoineNet < 0) {
+    conseils.push({
+      id: 'patrimoine_negatif', priority: 1, couleur: '#C0392B', icon: '⚠',
+      titre: `Patrimoine net négatif (${fmt(patrimoineNet)})`,
+      corps: `Vos dettes (${fmt(detteTotal)}) dépassent la valeur totale de vos actifs (${fmt(total)}). Votre patrimoine net est négatif (${fmt(patrimoineNet)}). À titre informatif, réduire l'endettement devrait être la priorité absolue. Consultez un conseiller financier ou un professionnel du droit pour analyser votre situation.`,
+      action: 'Voir mes crédits & dettes', nav: 'actifs', sub: 'credits',
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIORITÉ 1 — Alertes
@@ -215,11 +228,12 @@ export function generateConseils(data) {
     const biensNonLoues = (data.immobilier || []).filter(b => {
       // Exclure résidence principale et terrains (non concernés par la location)
       if (b.estLogement || b.type === 'Terrain') return false;
+      // C10 — correspondance par bienId (priorité) ou bienNom (compat. données antérieures)
+      // Supprimé : fallback par label (r.label.includes(b.nom)) — trop permissif
       const loyerLie = (data.revenus_recurrents || []).find(r =>
         r.actif !== false && (
           (b.id && r.bienId === b.id) ||
-          (b.nom && r.bienNom && r.bienNom === b.nom) ||
-          r.label?.toLowerCase().includes(b.nom?.toLowerCase())
+          (!r.bienId && b.nom && r.bienNom && r.bienNom === b.nom)
         )
       );
       return !loyerLie;

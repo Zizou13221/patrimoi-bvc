@@ -227,6 +227,19 @@ export default function PagePaywall({ onClose, trigger }) {
           L'abonnement se renouvelle automatiquement sauf résiliation au moins 24h avant la date de renouvellement.
           Le paiement est débité sur votre compte Apple. Gérez votre abonnement dans les Réglages iOS → [Votre nom] → Abonnements.
         </Text>
+
+        {/* C22 — Avertissement sécurité PIN */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+          marginTop: 16, backgroundColor: 'rgba(255,255,255,0.06)',
+          borderRadius: 10, padding: 12,
+        }}>
+          <Text style={{ fontSize: 15 }}>🔐</Text>
+          <Text style={{ color: 'rgba(180,230,200,0.55)', fontSize: 10, flex: 1, lineHeight: 15 }}>
+            <Text style={{ fontWeight: '700' }}>Conseil sécurité : </Text>
+            PatriMoi chiffre vos données localement. Pour une protection maximale, activez le verrouillage par code ou Face ID sur votre iPhone (Réglages → Face ID & code).
+          </Text>
+        </View>
       </View>
     </ScrollView>
   );

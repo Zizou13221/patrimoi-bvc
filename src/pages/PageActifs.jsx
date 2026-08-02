@@ -12,7 +12,7 @@ import { fmt, fmtN, fmtCours, pctDiff } from '../utils/fmt';
 import { getBvcCache, fetchPrixOr, fetchDevises } from '../utils/api';
 import {
   Card, BtnPri, BtnSec, PLBadge, IconBox,
-  SectionTitle, InfoRow, MethodSelector, Input, SelectInput, TopBar, BarH, SparklineInteractive,
+  SectionTitle, InfoRow, MethodSelector, Input, SelectInput, TopBar, BarH, SparklineInteractive, EyeIcon,
 } from '../components/shared';
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -2439,6 +2439,7 @@ const PageActifs = React.memo(function PageActifs({ onNav }) {
   const data      = usePatrimoineStore(s => s.data);
   const setData   = usePatrimoineStore(s => s.setData);
   const discret   = usePatrimoineStore(s => s.discret);
+  const setDiscret = usePatrimoineStore(s => s.setDiscret);
   // Bug 2&3 fix : sub lu directement depuis le store Zustand (subscription continue)
   // setPage('actifs', 'or') → sub devient 'or' → PageActifs re-render → SubOr affiché
   const sub       = usePatrimoineStore(s => s.sub);
@@ -2477,7 +2478,21 @@ const PageActifs = React.memo(function PageActifs({ onNav }) {
     <View style={{ flex:1, minHeight:0 }}>
       <View style={{ backgroundColor:C.pri, padding:14 }}>
         <Text style={{ color:'rgba(180,230,200,0.9)', fontSize:12 }}>Patrimoine brut</Text>
-        <Text style={{ color:C.white, fontWeight:'700', fontSize:22 }}>{discret ? '•••• DH' : fmt(totalBrut)}</Text>
+        <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+          <View>
+            <Text style={{ color: discret ? 'transparent' : C.white, fontWeight:'700', fontSize:22 }}>
+              {fmt(totalBrut)}
+            </Text>
+            {discret && (
+              <Text style={{ position:'absolute', top:0, left:0, color:C.white, fontWeight:'700', fontSize:22 }}>
+                •••• DH
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity onPress={() => setDiscret(!discret)} activeOpacity={0.6} hitSlop={{ top:10, bottom:10, left:10, right:10 }}>
+            <EyeIcon open={!discret} />
+          </TouchableOpacity>
+        </View>
         {dettes > 0 && (
           <Text style={{ color:'rgba(255,180,180,0.9)', fontSize:11, marginTop:2 }}>
             Net après dettes : {discret ? '•••• DH' : fmt(totalBrut - dettes)}
