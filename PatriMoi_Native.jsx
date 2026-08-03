@@ -14,7 +14,7 @@
  *   → configurer SUPABASE_URL et SUPABASE_ANON_KEY dans .env
  */
 
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, SafeAreaView, StatusBar, ActivityIndicator, Text, AppState, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePatrimoineStore } from './src/store/patrimoineStore';
@@ -78,6 +78,10 @@ import PageAuth                from './src/pages/PageAuth';
 import PageOnboarding          from './src/pages/PageOnboarding';
 const _navMod      = (() => { try { return require('./src/navigation/AppNavigator'); } catch(_) { return {}; } })();
 const AppNavigator = _navMod.AppNavigator || (() => null);
+
+// C16 — PinGate (verrouillage auto au retour de l'arrière-plan)
+const _pinGateMod  = (() => { try { return require('./src/components/PinGate'); } catch(_) { return {}; } })();
+const PinGate      = _pinGateMod.default || (() => null);
 
 // ── Colors via require() — évite le bug de capture Babel où `var C = _colors.C`
 // est évalué AVANT que colors.js ait fini son initialisation.
@@ -213,6 +217,8 @@ export default function PatriMoi() {
   }, [discret]);
 
   const appState        = useRef(AppState.currentState);
+  const [locked,        setLocked]     = useState(false);   // C16 — PinGate
+  const bgTimestamp     = useRef(null);                     // C16 — horodatage arrière-plan
   const isRefreshingRef = useRef(false);
   const saveTimer       = useRef(null);
   const dataRef         = useRef(data);
@@ -471,15 +477,27 @@ export default function PatriMoi() {
     }
   }, [appReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 7. AppState : refresh BVC au retour + flush sync avant arrière-plan ──
+  // ── 7. AppState : refresh BVC au retour + flush sync avant arrière-plan + C16 PinGate ──
   useEffect(() => {
+    const PIN_KEY  = '@patrimoi_pin';
+    const LOCK_KEY = '@patrimoi_locktime';
     const appStateSub = AppState.addEventListener('change', nextState => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
         refreshBVC();
+        // C16 — Vérifier si le délai de verrouillage est dépassé
+        const pinStored = storage.getString(PIN_KEY);
+        if (pinStored && bgTimestamp.current !== null) {
+          const delayStr = storage.getString(LOCK_KEY) || '0';
+          const delay    = parseInt(delayStr, 10);
+          const elapsed  = (Date.now() - bgTimestamp.current) / 1000;
+          if (delay === 0 || elapsed >= delay) setLocked(true);
+        }
+        bgTimestamp.current = null;
       }
-      // Flush immédiat avant que l'app soit suspendue
-      if (nextState.match(/inactive|background/) && user) {
-        flushNow();
+      // Enregistrer le moment où l'app passe en arrière-plan + flush sync
+      if (nextState.match(/inactive|background/)) {
+        bgTimestamp.current = Date.now();
+        if (user) flushNow();
       }
       appState.current = nextState;
     });
@@ -557,6 +575,8 @@ export default function PatriMoi() {
     <ErrorBoundary>
       <StatusBar barStyle="light-content" backgroundColor={C.pri}/>
       <AppNavigator />
+      {/* C16 — PinGate auto-lock (overlay plein écran, zIndex 9999) */}
+      {locked && <PinGate onUnlock={() => setLocked(false)} />}
     </ErrorBoundary>
   );
 }

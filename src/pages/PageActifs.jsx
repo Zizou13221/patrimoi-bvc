@@ -1193,12 +1193,19 @@ function SubCT({ data, setData, onBack }) {
   const [editIdx,       setEditIdx]       = useState(-1);
   const [detailIdx,     setDetailIdx]     = useState(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  // C3 — Vente CT
+  // C3 — Vente CT (actions)
   const [venteIdx,  setVenteIdx]  = useState(null);
   const [venteQty,  setVenteQty]  = useState('');
   const [ventePrix, setVentePrix] = useState('');
   const [venteDate, setVenteDate] = useState('');
   const [venteDest, setVenteDest] = useState('banque');
+
+  // C20 — Vente CT OPCVM
+  const [venteOpcvmIdx,   setVenteOpcvmIdx]  = useState(null);
+  const [venteOpcvmVl,    setVenteOpcvmVl]   = useState('');
+  const [venteOpcvmParts, setVenteOpcvmParts] = useState('');
+  const [venteOpcvmDate,  setVenteOpcvmDate] = useState('');
+  const [venteOpcvmDest,  setVenteOpcvmDest] = useState('banque');
 
   function confirmerVenteCT() {
     if (venteIdx === null) return;
@@ -1341,6 +1348,35 @@ function SubCT({ data, setData, onBack }) {
         setData(d => ({ ...d, ct:{ ...d.ct, opcvm: d.ct.opcvm.filter((_, j) => j !== i) }}))
       },
     ]);
+  }
+
+  // C20 — Confirmer cession OPCVM : P&L = (VL cession − VL d'achat) × parts
+  function confirmerVenteOpcvm() {
+    if (venteOpcvmIdx === null) return;
+    const o  = ct.opcvm[venteOpcvmIdx];
+    const pv = parseFloat(venteOpcvmVl);
+    const pq = parseFloat(venteOpcvmParts);
+    if (isNaN(pv) || pv <= 0 || isNaN(pq) || pq <= 0 || pq > o.parts) return;
+    const vlAchat = o.vl_achat ?? o.vl; // VL d'achat stockée à la création (C20)
+    setData(d => {
+      const newOpcvm = d.ct.opcvm.map((x, j) => {
+        if (j !== venteOpcvmIdx) return x;
+        const remaining = x.parts - pq;
+        return remaining <= 0 ? null : { ...x, parts: remaining };
+      }).filter(Boolean);
+      const dataWithOpcvm = { ...d, ct: { ...d.ct, opcvm: newOpcvm } };
+      return applyCession({
+        data: dataWithOpcvm,
+        type: 'CT OPCVM', nom: o.nom,
+        idx: null, qtyVendue: pq,
+        prixUnit: pv,       // VL de cession (C20)
+        pruUnit: vlAchat,   // VL d'achat (C20)
+        dateStr: venteOpcvmDate || new Date().toISOString().slice(0, 10),
+        dest: venteOpcvmDest,
+        listeKey: null,
+      });
+    });
+    setVenteOpcvmIdx(null); setVenteOpcvmVl(''); setVenteOpcvmParts(''); setVenteOpcvmDate('');
   }
 
   const tickerValid = ticker && ticker !== 'Selectionner...';
@@ -1579,6 +1615,7 @@ function SubCT({ data, setData, onBack }) {
           )
           : ct.opcvm.map((o, i) => {
               const val = o.vl * o.parts, poids = total > 0 ? val / total * 100 : 0;
+              const vlAchat = o.vl_achat ?? o.vl;
               return (
                 <Card key={i} style={{ padding:10, marginBottom:8 }}>
                   <View style={{ flexDirection:'row', gap:8, alignItems:'center' }}>
@@ -1586,6 +1623,9 @@ function SubCT({ data, setData, onBack }) {
                     <View style={{ flex:1 }}>
                       <Text style={{ fontWeight:'600', fontSize:12 }}>{o.nom}</Text>
                       <Text style={{ fontSize:10, color:C.g3 }}>{o.parts} parts — VL: {fmt(o.vl)}/part — {o.type}</Text>
+                      {vlAchat !== o.vl && (
+                        <Text style={{ fontSize:9, color:C.g3 }}>VL achat : {fmt(vlAchat)}/part</Text>
+                      )}
                     </View>
                     <View style={{ alignItems:'flex-end' }}>
                       <Text style={{ fontWeight:'700', fontSize:12 }}>{fmt(val)}</Text>
@@ -1594,7 +1634,45 @@ function SubCT({ data, setData, onBack }) {
                       </View>
                     </View>
                   </View>
-                  <ActionBtns onEdit={() => startEditOpcvm(i)} onDelete={() => deleteOpcvm(i)}/>
+                  {/* C20 — Bouton Vendre OPCVM */}
+                  <ActionBtns
+                    onEdit={() => { setVenteOpcvmIdx(null); startEditOpcvm(i); }}
+                    onDelete={() => deleteOpcvm(i)}
+                    onVendre={() => {
+                      setEditIdx(-1); setShowAdd(false);
+                      setVenteOpcvmIdx(venteOpcvmIdx === i ? null : i);
+                      setVenteOpcvmVl(String(o.vl));
+                      setVenteOpcvmParts(String(o.parts));
+                      setVenteOpcvmDate('');
+                    }}
+                  />
+                  {/* C20 — Formulaire de cession OPCVM inline */}
+                  {venteOpcvmIdx === i && (
+                    <View style={{ backgroundColor:'#FFF8E8', borderRadius:10, padding:12, margin:8, borderWidth:1, borderColor:'#E8A030' }}>
+                      <Text style={{ fontWeight:'700', fontSize:12, color:'#B85C00', marginBottom:8 }}>
+                        Céder {o.nom} — max {o.parts} part(s)
+                      </Text>
+                      <Input label="Nombre de parts à céder" value={venteOpcvmParts} onChangeText={setVenteOpcvmParts} keyboardType="numeric" placeholder={String(o.parts)}/>
+                      <Input label="VL de cession (DH/part)" value={venteOpcvmVl} onChangeText={setVenteOpcvmVl} keyboardType="numeric" placeholder={String(o.vl)}/>
+                      <Input label="Date (optionnel)" value={venteOpcvmDate} onChangeText={setVenteOpcvmDate} placeholder="JJ/MM/AAAA"/>
+                      <SelectInput label="Créditer sur" value={venteOpcvmDest} onChange={setVenteOpcvmDest} options={['banque','liquidites']}/>
+                      {isNum(venteOpcvmVl) && isNum(venteOpcvmParts) && parseFloat(venteOpcvmParts) > 0 && parseFloat(venteOpcvmVl) > 0 && (
+                        <View style={{ backgroundColor:'rgba(0,0,0,0.05)', borderRadius:6, padding:8, marginBottom:8 }}>
+                          <Text style={{ fontSize:11, color:C.dark }}>
+                            Montant : {fmt(Math.round(parseFloat(venteOpcvmVl) * parseFloat(venteOpcvmParts)))} DH
+                          </Text>
+                          <Text style={{ fontSize:11, color: parseFloat(venteOpcvmVl) >= vlAchat ? C.gpos : C.rneg }}>
+                            P&L : {parseFloat(venteOpcvmVl) >= vlAchat ? '+' : ''}{fmt(Math.round((parseFloat(venteOpcvmVl) - vlAchat) * parseFloat(venteOpcvmParts)))} DH
+                          </Text>
+                          <Text style={{ fontSize:10, color:C.g3 }}>VL achat : {fmt(vlAchat)}/part · VL cession : {fmt(parseFloat(venteOpcvmVl))}/part (C20)</Text>
+                        </View>
+                      )}
+                      <View style={{ flexDirection:'row', gap:8, marginTop:4 }}>
+                        <BtnSec onPress={() => setVenteOpcvmIdx(null)} style={{ flex:1 }}>Annuler</BtnSec>
+                        <BtnPri onPress={confirmerVenteOpcvm} disabled={!isNum(venteOpcvmVl) || !isNum(venteOpcvmParts) || parseFloat(venteOpcvmParts) <= 0} style={{ flex:1, backgroundColor:'#E8A030' }}>Confirmer la cession</BtnPri>
+                      </View>
+                    </View>
+                  )}
                 </Card>
               );
             })
