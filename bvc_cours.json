@@ -1,13 +1,13 @@
 {
-  "updated": "2026-08-05T11:00:15.674146+00:00",
+  "updated": "2026-08-05T11:11:25.522758+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 83,
   "echecs": 0,
   "cours": {
     "ADH": {
-      "cours": 36.5,
-      "var_pct": -1.35
+      "cours": 36.37,
+      "var_pct": -1.7
     },
     "ADI": {
       "cours": 370.0,
@@ -26,8 +26,8 @@
       "var_pct": -6.56
     },
     "AKT": {
-      "cours": 1135.0,
-      "var_pct": 0.18
+      "cours": 1140.0,
+      "var_pct": 0.62
     },
     "ALM": {
       "cours": 1784.0,
@@ -86,8 +86,8 @@
       "var_pct": -0.78
     },
     "CMG": {
-      "cours": 324.6,
-      "var_pct": 0.19
+      "cours": 320.0,
+      "var_pct": -1.23
     },
     "COL": {
       "cours": 79.0,
@@ -106,8 +106,8 @@
       "var_pct": -0.35
     },
     "DHO": {
-      "cours": 54.01,
-      "var_pct": -0.17
+      "cours": 54.98,
+      "var_pct": 1.63
     },
     "DARI": {
       "cours": 4200.0,
@@ -142,8 +142,8 @@
       "var_pct": -0.5
     },
     "IAM": {
-      "cours": 96.42,
-      "var_pct": 1.7
+      "cours": 96.15,
+      "var_pct": 1.41
     },
     "IBMC": {
       "cours": 61.0,
@@ -194,8 +194,8 @@
       "var_pct": 0.0
     },
     "MNG": {
-      "cours": 1535.0,
-      "var_pct": 6.6
+      "cours": 1550.0,
+      "var_pct": 7.64
     },
     "MOX": {
       "cours": 400.0,
@@ -214,8 +214,8 @@
       "var_pct": 0.0
     },
     "NAKL": {
-      "cours": 48.05,
-      "var_pct": -2.81
+      "cours": 48.0,
+      "var_pct": -2.91
     },
     "OUL": {
       "cours": 1170.0,
@@ -234,8 +234,8 @@
       "var_pct": 5.96
     },
     "RIS": {
-      "cours": 322.7,
-      "var_pct": 0.84
+      "cours": 321.0,
+      "var_pct": 0.31
     },
     "S2M": {
       "cours": 459.0,
@@ -258,16 +258,16 @@
       "var_pct": -1.14
     },
     "SMI": {
-      "cours": 6516.0,
-      "var_pct": 2.61
+      "cours": 6518.0,
+      "var_pct": 2.65
     },
     "SNA": {
       "cours": 66.75,
       "var_pct": 0.06
     },
     "SNP": {
-      "cours": 344.5,
-      "var_pct": 9.02
+      "cours": 336.0,
+      "var_pct": 6.33
     },
     "SOT": {
       "cours": 362.5,
@@ -286,8 +286,8 @@
       "var_pct": -0.83
     },
     "TGC": {
-      "cours": 739.2,
-      "var_pct": -0.11
+      "cours": 739.1,
+      "var_pct": -0.12
     },
     "TMA": {
       "cours": 1525.0,
@@ -322,8 +322,8 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 18182.67,
-      "var_pct": 0.66
+      "cours": 18197.78,
+      "var_pct": 0.74
     },
     "AFG": {
       "cours": 3637.0,
