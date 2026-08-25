@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-25T08:00:16.339049+00:00",
+  "updated": "2026-08-25T09:00:21.933511+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 83,
@@ -108,10 +108,6 @@
     "DHO": {
       "cours": 55.49,
       "var_pct": -0.91
-    },
-    "DARI": {
-      "cours": 4061.0,
-      "var_pct": -3.31
     },
     "DWAY": {
       "cours": 770.0,
@@ -312,6 +308,10 @@
     "ZDJ": {
       "cours": 315.0,
       "var_pct": 0.62
+    },
+    "DARI": {
+      "cours": 4061.0,
+      "var_pct": -3.31
     },
     "DIS": {
       "cours": 27.42,
