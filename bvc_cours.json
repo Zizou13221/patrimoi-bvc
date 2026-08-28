@@ -1,17 +1,17 @@
 {
-  "updated": "2026-08-28T11:00:13.890691+00:00",
+  "updated": "2026-08-28T12:00:13.885941+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 81,
   "echecs": 0,
   "cours": {
     "ADH": {
-      "cours": 36.7,
-      "var_pct": -0.68
+      "cours": 36.64,
+      "var_pct": -0.84
     },
     "ADI": {
-      "cours": 436.0,
-      "var_pct": -0.23
+      "cours": 434.1,
+      "var_pct": -0.66
     },
     "AFI": {
       "cours": 331.0,
@@ -34,16 +34,16 @@
       "var_pct": 1.14
     },
     "ATH": {
-      "cours": 69.5,
-      "var_pct": 0.72
+      "cours": 68.5,
+      "var_pct": -0.72
     },
     "ATL": {
-      "cours": 129.0,
-      "var_pct": 0.78
+      "cours": 128.85,
+      "var_pct": 0.66
     },
     "ATW": {
-      "cours": 705.2,
-      "var_pct": -0.24
+      "cours": 706.0,
+      "var_pct": -0.13
     },
     "BAL": {
       "cours": 200.0,
@@ -58,32 +58,32 @@
       "var_pct": 0.8
     },
     "BOA": {
-      "cours": 189.0,
-      "var_pct": 0.0
+      "cours": 190.0,
+      "var_pct": 0.53
     },
     "CAP": {
-      "cours": 253.0,
-      "var_pct": -0.35
+      "cours": 251.0,
+      "var_pct": -1.14
     },
     "CDM": {
       "cours": 999.0,
       "var_pct": 1.19
     },
     "CFG": {
-      "cours": 200.1,
-      "var_pct": 1.32
+      "cours": 201.9,
+      "var_pct": 2.23
     },
     "CIH": {
-      "cours": 346.0,
-      "var_pct": -0.57
+      "cours": 348.0,
+      "var_pct": 0.0
     },
     "CMA": {
-      "cours": 1710.0,
-      "var_pct": 1.18
+      "cours": 1700.0,
+      "var_pct": 0.59
     },
     "CMG": {
-      "cours": 338.9,
-      "var_pct": 5.91
+      "cours": 335.0,
+      "var_pct": 4.69
     },
     "COL": {
       "cours": 79.0,
@@ -94,16 +94,16 @@
       "var_pct": 0.0
     },
     "CSR": {
-      "cours": 197.0,
-      "var_pct": -0.15
+      "cours": 197.65,
+      "var_pct": 0.18
     },
     "CTM": {
       "cours": 888.0,
       "var_pct": -0.07
     },
     "DHO": {
-      "cours": 55.5,
-      "var_pct": 0.0
+      "cours": 55.49,
+      "var_pct": -0.02
     },
     "DWAY": {
       "cours": 770.0,
@@ -118,24 +118,24 @@
       "var_pct": -0.33
     },
     "FBR": {
-      "cours": 402.5,
-      "var_pct": -0.64
+      "cours": 396.0,
+      "var_pct": -2.25
     },
     "GAZ": {
-      "cours": 3739.0,
-      "var_pct": -0.03
+      "cours": 3740.0,
+      "var_pct": 0.0
     },
     "GTM": {
-      "cours": 704.2,
-      "var_pct": -0.47
+      "cours": 708.0,
+      "var_pct": 0.07
     },
     "HPS": {
       "cours": 656.0,
       "var_pct": 0.46
     },
     "IAM": {
-      "cours": 103.4,
-      "var_pct": 0.19
+      "cours": 103.3,
+      "var_pct": 0.1
     },
     "IBMC": {
       "cours": 60.19,
@@ -150,16 +150,16 @@
       "var_pct": 3.88
     },
     "JET": {
-      "cours": 2115.0,
-      "var_pct": -1.17
+      "cours": 2116.0,
+      "var_pct": -1.12
     },
     "LBV": {
       "cours": 4240.0,
       "var_pct": 0.57
     },
     "LES": {
-      "cours": 305.3,
-      "var_pct": -4.59
+      "cours": 314.4,
+      "var_pct": -1.75
     },
     "LHM": {
       "cours": 1780.0,
@@ -174,8 +174,8 @@
       "var_pct": 0.0
     },
     "MDP": {
-      "cours": 26.99,
-      "var_pct": 0.71
+      "cours": 27.0,
+      "var_pct": 0.75
     },
     "MIC": {
       "cours": 765.0,
@@ -186,24 +186,24 @@
       "var_pct": 2.78
     },
     "MNG": {
-      "cours": 1857.0,
-      "var_pct": -0.16
+      "cours": 1858.0,
+      "var_pct": -0.11
     },
     "MOX": {
       "cours": 391.0,
       "var_pct": -0.26
     },
     "MSA": {
-      "cours": 854.0,
-      "var_pct": 0.31
+      "cours": 852.9,
+      "var_pct": 0.18
     },
     "MUT": {
       "cours": 241.0,
       "var_pct": -0.82
     },
     "NAKL": {
-      "cours": 49.9,
-      "var_pct": 1.61
+      "cours": 49.8,
+      "var_pct": 1.41
     },
     "OUL": {
       "cours": 1151.0,
@@ -214,8 +214,8 @@
       "var_pct": -5.92
     },
     "RDS": {
-      "cours": 185.35,
-      "var_pct": -0.88
+      "cours": 186.1,
+      "var_pct": -0.48
     },
     "REB": {
       "cours": 105.0,
@@ -238,68 +238,68 @@
       "var_pct": 3.19
     },
     "SID": {
-      "cours": 1950.0,
-      "var_pct": 0.0
+      "cours": 1970.0,
+      "var_pct": 1.03
     },
     "SLF": {
       "cours": 445.0,
       "var_pct": 1.14
     },
     "SMI": {
-      "cours": 7230.0,
-      "var_pct": 1.83
+      "cours": 7276.0,
+      "var_pct": 2.48
     },
     "SNA": {
-      "cours": 72.0,
-      "var_pct": 0.57
+      "cours": 71.5,
+      "var_pct": -0.13
     },
     "SNP": {
-      "cours": 357.0,
-      "var_pct": -0.83
+      "cours": 359.9,
+      "var_pct": -0.03
     },
     "SOT": {
-      "cours": 360.05,
-      "var_pct": -2.16
+      "cours": 370.0,
+      "var_pct": 0.54
     },
     "SRM": {
       "cours": 465.0,
       "var_pct": 0.0
     },
     "STR": {
-      "cours": 207.0,
-      "var_pct": 2.3
+      "cours": 210.0,
+      "var_pct": 3.78
     },
     "T2S": {
-      "cours": 238.55,
-      "var_pct": -0.19
+      "cours": 238.6,
+      "var_pct": -0.17
     },
     "TGC": {
-      "cours": 775.0,
-      "var_pct": -0.64
+      "cours": 777.0,
+      "var_pct": -0.38
     },
     "TMA": {
-      "cours": 1568.0,
-      "var_pct": 0.0
+      "cours": 1554.0,
+      "var_pct": -0.89
     },
     "TQM": {
-      "cours": 1793.0,
-      "var_pct": -0.11
+      "cours": 1796.0,
+      "var_pct": 0.06
     },
     "UMR": {
       "cours": 170.0,
       "var_pct": -1.73
     },
     "VCN": {
-      "cours": 350.0,
-      "var_pct": 0.86
+      "cours": 355.0,
+      "var_pct": 2.31
     },
     "WAA": {
       "cours": 5600.0,
       "var_pct": 0.0
     },
     "ZDJ": {
-      "cours": 310.0,
-      "var_pct": -0.16
+      "cours": 319.8,
+      "var_pct": 3.0
     },
     "DARI": {
       "cours": 4061.0,
@@ -314,12 +314,12 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 19063.26,
-      "var_pct": 0.09
+      "cours": 19083.31,
+      "var_pct": 0.19
     },
     "AFG": {
-      "cours": 3739.0,
-      "var_pct": -0.03
+      "cours": 3740.0,
+      "var_pct": 0.0
     },
     "BMCI": {
       "cours": 605.0,
