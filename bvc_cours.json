@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-02T13:00:15.240419+00:00",
+  "updated": "2026-09-02T13:04:15.782183+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 81,
@@ -38,8 +38,8 @@
       "var_pct": 0.21
     },
     "ATH": {
-      "cours": 68.5,
-      "var_pct": 1.18
+      "cours": 68.0,
+      "var_pct": 0.44
     },
     "ATL": {
       "cours": 126.6,
@@ -62,8 +62,8 @@
       "var_pct": 0.0
     },
     "BOA": {
-      "cours": 187.0,
-      "var_pct": 0.54
+      "cours": 187.4,
+      "var_pct": 0.75
     },
     "CAP": {
       "cours": 243.0,
@@ -130,8 +130,8 @@
       "var_pct": -1.05
     },
     "GTM": {
-      "cours": 649.0,
-      "var_pct": 1.41
+      "cours": 646.0,
+      "var_pct": 0.94
     },
     "HPS": {
       "cours": 655.0,
@@ -150,8 +150,8 @@
       "var_pct": 0.0
     },
     "INV": {
-      "cours": 132.0,
-      "var_pct": 1.07
+      "cours": 130.1,
+      "var_pct": -0.38
     },
     "JET": {
       "cours": 2015.0,
@@ -190,8 +190,8 @@
       "var_pct": 2.78
     },
     "MNG": {
-      "cours": 1690.0,
-      "var_pct": -0.29
+      "cours": 1696.0,
+      "var_pct": 0.06
     },
     "MOX": {
       "cours": 386.0,
@@ -206,8 +206,8 @@
       "var_pct": 0.38
     },
     "NAKL": {
-      "cours": 49.5,
-      "var_pct": -0.6
+      "cours": 49.49,
+      "var_pct": -0.62
     },
     "OUL": {
       "cours": 1156.0,
@@ -230,8 +230,8 @@
       "var_pct": -0.5
     },
     "S2M": {
-      "cours": 530.0,
-      "var_pct": -1.67
+      "cours": 540.0,
+      "var_pct": 0.19
     },
     "SAHM": {
       "cours": 2875.0,
@@ -254,8 +254,8 @@
       "var_pct": 2.85
     },
     "SNA": {
-      "cours": 68.99,
-      "var_pct": 1.46
+      "cours": 69.0,
+      "var_pct": 1.47
     },
     "SNP": {
       "cours": 350.0,
@@ -314,8 +314,8 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 18551.59,
-      "var_pct": -0.16
+      "cours": 18555.84,
+      "var_pct": -0.14
     },
     "AFG": {
       "cours": 3661.0,
