@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-10T13:00:11.018584+00:00",
+  "updated": "2026-09-10T13:12:22.630269+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 82,
@@ -10,8 +10,8 @@
       "var_pct": 0.11
     },
     "ADI": {
-      "cours": 415.0,
-      "var_pct": -1.14
+      "cours": 413.0,
+      "var_pct": -1.62
     },
     "AFI": {
       "cours": 332.1,
@@ -142,12 +142,12 @@
       "var_pct": -0.73
     },
     "IAM": {
-      "cours": 97.18,
-      "var_pct": 0.19
+      "cours": 97.0,
+      "var_pct": 0.0
     },
     "IBMC": {
-      "cours": 55.34,
-      "var_pct": -5.08
+      "cours": 58.3,
+      "var_pct": 0.0
     },
     "IMO": {
       "cours": 93.0,
@@ -194,8 +194,8 @@
       "var_pct": -0.56
     },
     "MNG": {
-      "cours": 1800.0,
-      "var_pct": 0.0
+      "cours": 1781.0,
+      "var_pct": -1.06
     },
     "MOX": {
       "cours": 384.9,
@@ -206,8 +206,8 @@
       "var_pct": -0.57
     },
     "MUT": {
-      "cours": 244.0,
-      "var_pct": 0.0
+      "cours": 242.0,
+      "var_pct": -0.82
     },
     "NAKL": {
       "cours": 49.1,
@@ -234,8 +234,8 @@
       "var_pct": -0.31
     },
     "S2M": {
-      "cours": 530.0,
-      "var_pct": -0.75
+      "cours": 526.0,
+      "var_pct": -1.5
     },
     "SAHM": {
       "cours": 2989.0,
@@ -254,8 +254,8 @@
       "var_pct": -0.11
     },
     "SMI": {
-      "cours": 6600.0,
-      "var_pct": -3.65
+      "cours": 6570.0,
+      "var_pct": -4.09
     },
     "SNA": {
       "cours": 68.0,
@@ -278,8 +278,8 @@
       "var_pct": 1.21
     },
     "T2S": {
-      "cours": 226.25,
-      "var_pct": -1.24
+      "cours": 226.2,
+      "var_pct": -1.27
     },
     "TGC": {
       "cours": 730.0,
@@ -318,8 +318,8 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 18812.52,
-      "var_pct": -0.13
+      "cours": 18784.03,
+      "var_pct": -0.28
     },
     "AFG": {
       "cours": 3800.0,
