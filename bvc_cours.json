@@ -1,8 +1,8 @@
 {
-  "updated": "2026-09-24T08:00:13.039594+00:00",
+  "updated": "2026-09-24T09:00:13.896472+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
-  "succes": 84,
+  "succes": 83,
   "echecs": 0,
   "cours": {
     "ADH": {
@@ -124,10 +124,6 @@
     "DYT": {
       "cours": 352.0,
       "var_pct": 0.03
-    },
-    "EQD": {
-      "cours": 1480.0,
-      "var_pct": 0.0
     },
     "FBR": {
       "cours": 343.9,
