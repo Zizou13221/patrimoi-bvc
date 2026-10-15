@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-15T13:46:54.333918+00:00",
+  "updated": "2026-10-15T14:00:15.237600+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 81,
@@ -94,12 +94,12 @@
       "var_pct": -1.93
     },
     "COL": {
-      "cours": 75.5,
-      "var_pct": 0.0
+      "cours": 75.7,
+      "var_pct": 0.26
     },
     "CRS": {
-      "cours": 19.71,
-      "var_pct": -1.45
+      "cours": 19.99,
+      "var_pct": -0.05
     },
     "CSR": {
       "cours": 174.0,
@@ -130,8 +130,8 @@
       "var_pct": 0.25
     },
     "GTM": {
-      "cours": 587.0,
-      "var_pct": -0.51
+      "cours": 590.0,
+      "var_pct": 0.0
     },
     "HPS": {
       "cours": 505.0,
@@ -198,8 +198,8 @@
       "var_pct": 0.0
     },
     "MSA": {
-      "cours": 749.9,
-      "var_pct": -0.01
+      "cours": 750.0,
+      "var_pct": 0.0
     },
     "MUT": {
       "cours": 225.0,
@@ -214,8 +214,8 @@
       "var_pct": 0.08
     },
     "RDS": {
-      "cours": 159.95,
-      "var_pct": 0.03
+      "cours": 157.0,
+      "var_pct": -1.81
     },
     "REB": {
       "cours": 94.0,
@@ -270,8 +270,8 @@
       "var_pct": -0.03
     },
     "T2S": {
-      "cours": 209.0,
-      "var_pct": -1.42
+      "cours": 210.0,
+      "var_pct": -0.94
     },
     "TGC": {
       "cours": 635.4,
@@ -282,8 +282,8 @@
       "var_pct": -0.74
     },
     "TQM": {
-      "cours": 1610.0,
-      "var_pct": 0.62
+      "cours": 1623.0,
+      "var_pct": 1.44
     },
     "UMR": {
       "cours": 169.0,
@@ -314,8 +314,8 @@
       "var_pct": 0.0
     },
     "MASI": {
-      "cours": 16988.15,
-      "var_pct": 0.12
+      "cours": 16989.54,
+      "var_pct": 0.13
     },
     "AFG": {
       "cours": 3610.0,
