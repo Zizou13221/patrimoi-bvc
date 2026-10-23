@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-22T18:57:19.624560+00:00",
+  "updated": "2026-10-23T09:00:11.654492+00:00",
   "source": "tradingview",
   "marche": "BVC — Bourse des Valeurs de Casablanca",
   "succes": 81,
@@ -63,7 +63,7 @@
     },
     "BOA": {
       "cours": 184.8,
-      "var_pct": 2.67
+      "var_pct": 5.05
     },
     "CAP": {
       "cours": 207.0,
